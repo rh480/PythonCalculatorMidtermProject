@@ -46,14 +46,14 @@ def calculator():
         ).strip().lower()
 
         #exit command to terminate the calculator
-        if user_input == "exit":
+        if user_input.lower() == "exit":
             print("Goodbye!")
             break
 
         parts = user_input.split()
 
         #History command to display previous calculations
-        if user_input == "history":
+        if user_input.lower() == "history":
             if not history:
                 print("No calculation history yet.")
             else:
