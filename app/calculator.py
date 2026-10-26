@@ -6,6 +6,12 @@ from app.operations import (
     subtraction,
     multiplication,
     division,
+    power,
+    root,
+    modulus,
+    int_divide,
+    percent,
+    absolute_difference,
 )
 
 
@@ -17,6 +23,12 @@ def calculator():
         "subtract": subtraction,
         "multiply": multiplication,
         "divide": division,
+        "power": power,
+        "root": root,
+        "modulus": modulus,
+        "int_divide": int_divide,
+        "percent": percent,
+        "absolute_difference": absolute_difference,
     }
 
     print("Welcome to the calculator! Type 'exit' to quit.")
