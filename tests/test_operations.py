@@ -1,6 +1,6 @@
 
 import pytest
-from app.operations import addition, percent, subtraction, division, multiplication, power, root, modulus, int_divide
+from app.operations import addition, subtraction, division, multiplication, power, root, modulus, int_divide, percent, absolute_difference
 
 '''Addition function tests'''
 
@@ -193,3 +193,20 @@ def test_percent(a, b, expected):
 def test_percent_by_zero():
     with pytest.raises(ValueError):
         percent(10, 0)
+
+'''Absolute Difference function tests'''
+
+@pytest.mark.parametrize(
+    "a, b, expected",
+    [
+        (10, 4, 6),  # Test case 1: Absolute difference between two positive integers. The expected result is 6.
+        (4, 10, 6),  # Test case 2: Absolute difference between two positive integers in reverse order. The expected result is 6.
+        (-5, -10, 5),  # Test case 3: Absolute difference between two negative integers. The expected result is 5.
+        (-3, 2, 5),  # Test case 4: Absolute difference between a negative and a positive integer. The expected result is 5.
+        (0, 0, 0),  # Test case 5: Absolute difference between two zeros. The expected result is 0.
+        (5, 5, 0),  # Test case 6: Absolute difference between two equal positive integers. The expected result is 0.
+        (5.5, 2.2, 3.3),  # Test case: Calculates the absolute difference between two decimal numbers.
+    ],
+)
+def test_absolute_difference(a, b, expected):
+    assert absolute_difference(a, b) == pytest.approx(expected)

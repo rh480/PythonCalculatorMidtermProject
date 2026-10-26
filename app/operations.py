@@ -63,3 +63,7 @@ def percent(a: float, b: float) -> float:
     if b == 0:  # Checks if 'b' is zero. If it is, we raise an error and stop the function.
         raise ValueError("Cannot calculate a percentage with zero as the second number.")  # This sends an error message when someone tries to calculate a percentage with zero as the second number.
     return (a / b) * 100  # Divides 'a' by 'b', multiplies the result by 100, and returns the percentage.
+
+def absolute_difference(a: float, b: float) -> float:
+    #Returns the absolute difference between two numbers. The function takes two float inputs, 'a' and 'b', and returns the non-negative difference between them as a float.
+    return abs(a - b)  # Subtracts 'b' from 'a', takes the absolute value, and returns the result.
