@@ -1,8 +1,8 @@
 
 import pytest
-from app.operations import addition, subtraction, division, multiplication, power, root
+from app.operations import addition, subtraction, division, multiplication, power, root, modulus
 
-#addition function tests
+'''Addition function tests'''
 
 @pytest.mark.parametrize(
     "a, b, expected",
@@ -18,7 +18,7 @@ def test_addition(a, b, expected):
     # Test the addition function with various inputs and expected outputs.
     assert addition(a, b) == pytest.approx(expected)
 
-#subtraction function tests
+'''Subtraction function tests'''
 
 @pytest.mark.parametrize(
     "a, b, expected",
@@ -34,7 +34,7 @@ def test_subtraction(a, b, expected):
     # Test the subtraction function with various inputs and expected outputs.
     assert subtraction(a, b) == pytest.approx(expected)
 
-#multiplication function tests
+'''Multiplication function tests'''
 
 @pytest.mark.parametrize(
     "a, b, expected",
@@ -50,7 +50,7 @@ def test_multiplication(a, b, expected):
     # Test the multiplication function with various inputs and expected outputs.
     assert multiplication(a, b) == pytest.approx(expected)
 
-#Division function tests
+'''Division function tests'''
 
 @pytest.mark.parametrize(
     "a, b, expected",
@@ -75,7 +75,7 @@ def test_division_by_zero():
     ):
         division(10, 0)
 
-#Power function tests
+'''Power function tests'''
 
 @pytest.mark.parametrize(
     "a, b, expected",
@@ -100,7 +100,7 @@ def test_power_zero_to_negative_exponent():
     ):
         power(0, -1)
 
-#Root function tests
+'''Root function tests'''
 
 @pytest.mark.parametrize(
     "a, b, expected",
@@ -128,3 +128,25 @@ def test_root_negative():
 def test_root_zero_to_negative():
     with pytest.raises(ValueError, match="Zero cannot have a negative root degree."):
         root(0, -1)
+
+'''Modulus function tests'''
+
+@pytest.mark.parametrize(
+    "a, b, expected",
+    [
+        (10, 3, 1), #Test case 1: Modulus of two positive integers. The expected result is 1.
+        (-10, 3, 2), #Test case 2: Modulus of a negative integer and a positive integer. The expected result is 2.
+        (10, -3, -2), #Test case 3: Modulus of a positive integer and a negative integer. The expected result is -2.
+        (-10, -3, -1), #Test case 4: Modulus of two negative integers. The expected result is -1.
+        (0, 3, 0), #Test case 5: Modulus of zero and a positive integer. The expected result is 0.
+        (7.5, 2, 1.5), #Test case 6: Modulus of a decimal number and a positive integer. The expected result is 1.5.
+        (10.5, 0.5, 0), #Test case 7: Modulus of a decimal number and a decimal number. The expected result is 0.
+    ],
+)
+def test_modulus(a, b, expected):
+    assert modulus(a, b) == pytest.approx(expected)
+
+
+def test_modulus_by_zero():
+    with pytest.raises(ValueError):
+        modulus(10, 0)

@@ -41,3 +41,11 @@ def root(a: float, b: float) -> float:
         return -((-a) ** (1 / b))
 
     return a ** (1 / b)
+
+
+def modulus(a: float, b: float) -> float:
+    #Return the remainder after dividing a by b.
+    if b == 0: # Checks if 'b' is zero. If it is, we raise an error and stop the function.
+        raise ValueError("Cannot calculate modulus with zero.")
+    result = a % b
+    return 0.0 if result == 0 else result
