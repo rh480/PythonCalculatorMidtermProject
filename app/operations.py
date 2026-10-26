@@ -21,6 +21,23 @@ def division(a: float, b: float) -> float:
 
 def power(a: float, b: float) -> float:
     #Returns the result of raising 'a' to the power of 'b'. The function takes two float inputs, 'a' and 'b', and returns 'a' raised to the power of 'b' as a float.
-    if a == 0 and b < 0:
+    if a == 0 and b < 0: # Checks if 'a' is zero and 'b' is negative. If both conditions are true, it raises a ValueError with the message "Zero cannot be raised to a negative power."
         raise ValueError("Zero cannot be raised to a negative power.")
     return a ** b
+
+
+
+def root(a: float, b: float) -> float:
+    #Calculate the b-th root of a.
+    if b == 0: # Checks if 'b' is zero. If it is, we raise an error and stop the function.
+        raise ValueError("The degree of the root cannot be zero.")
+    if a == 0 and b < 0: # Checks if 'a' is zero and 'b' is negative. If both conditions are true, it raises a ValueError with the message "Zero cannot have a negative root degree."
+        raise ValueError("Zero cannot have a negative root degree.")
+    if a < 0: # Checks if 'a' is negative. If it is, we check if 'b' is an even integer or not. If 'b' is an even integer or a non-integer, we raise a ValueError with the message "Cannot take an even or non-integer root of a negative number."
+        if not float(b).is_integer() or int(b) % 2 == 0:
+            raise ValueError(
+                "Cannot take an even or non-integer root of a negative number."
+            )
+        return -((-a) ** (1 / b))
+
+    return a ** (1 / b)

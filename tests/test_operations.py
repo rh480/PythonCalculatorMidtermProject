@@ -1,7 +1,8 @@
 
 import pytest
-from app.operations import addition, division, multiplication, power, subtraction
+from app.operations import addition, subtraction, division, multiplication, power, root
 
+#addition function tests
 
 @pytest.mark.parametrize(
     "a, b, expected",
@@ -14,9 +15,10 @@ from app.operations import addition, division, multiplication, power, subtractio
     ],
 )
 def test_addition(a, b, expected):
+    # Test the addition function with various inputs and expected outputs.
     assert addition(a, b) == pytest.approx(expected)
 
-
+#subtraction function tests
 
 @pytest.mark.parametrize(
     "a, b, expected",
@@ -29,7 +31,10 @@ def test_addition(a, b, expected):
     ],
 )
 def test_subtraction(a, b, expected):
+    # Test the subtraction function with various inputs and expected outputs.
     assert subtraction(a, b) == pytest.approx(expected)
+
+#multiplication function tests
 
 @pytest.mark.parametrize(
     "a, b, expected",
@@ -42,8 +47,10 @@ def test_subtraction(a, b, expected):
     ],
 )
 def test_multiplication(a, b, expected):
+    # Test the multiplication function with various inputs and expected outputs.
     assert multiplication(a, b) == pytest.approx(expected)
 
+#Division function tests
 
 @pytest.mark.parametrize(
     "a, b, expected",
@@ -56,15 +63,19 @@ def test_multiplication(a, b, expected):
     ],
 )
 def test_division(a, b, expected):
+    # Test the division function with various inputs and expected outputs.
     assert division(a, b) == pytest.approx(expected)
 
 
 def test_division_by_zero():
+    # Test that dividing by zero raises a ValueError with the correct message.
     with pytest.raises(
         ValueError,
         match="Division by zero is not allowed.",
     ):
         division(10, 0)
+
+#Power function tests
 
 @pytest.mark.parametrize(
     "a, b, expected",
@@ -72,16 +83,48 @@ def test_division_by_zero():
         (4, 3, 64),  # Test case 1: Raising a positive integer to the power of another positive integer. The expected result is 64.
         (-1, 1, -1),  # Test case 2: Raising a negative integer to the power of a positive integer. The expected result is -1.
         (1, 0, 1),  # Test case 3: Raising one to the power of zero. The expected result is 1.
-        (-2, 5, -32),  # Test case 4: Raising a negative integer to the power of a positive integer. The expected result is -32.
-        (1.5, 3, 3.375),  # Test case 5: Raising a decimal number to the power of another decimal number. The expected result is 3.375.
+        (0, 0, 1),  # Test case 4: Raising zero to the power of zero. The expected result is 1.
+        (5, -1, 0.2),  # Test case 5: Raising five to the power of -1. The expected result is 0.2.
+        (1.5, 3, 3.375),  # Test case 6: Raising a decimal number to the power of another decimal number. The expected result is 3.375.
     ],
 )
 def test_power(a, b, expected):
+    # Test the power function with various inputs and expected outputs.
     assert power(a, b) == pytest.approx(expected)
 
 def test_power_zero_to_negative_exponent():
+    # Test that raising zero to a negative exponent raises a ValueError with the correct message.
     with pytest.raises(
         ValueError,
         match="Zero cannot be raised to a negative power."
     ):
         power(0, -1)
+
+#Root function tests
+
+@pytest.mark.parametrize(
+    "a, b, expected",
+    [
+        (16, 4, 2),  # Test case 1: Taking the fourth root of a positive integer. The expected result is 2.
+        (-27, 3, -3),  # Test case 2: Taking the cube root of a negative integer. The expected result is -3.
+        (0, 3, 0),  # Test case 3: Taking the cube root of zero. The expected result is 0.
+        (16, -4, 0.5),  # Test case 4: Taking the fourth root of a negative integer. The expected result is 0.5.
+        (0.25, 0.5, 0.0625),  # Test case 5: Taking the 0.5th root of a decimal number. The expected result is 0.0625.
+    ],
+)
+def test_root(a, b, expected):
+    # Test the root function with various inputs and expected outputs.
+    assert root(a, b) == pytest.approx(expected)
+
+def test_root_zero_degree():
+    # Test that taking the root with a degree of zero raises a ValueError with the correct message.
+    with pytest.raises(ValueError, match="The degree of the root cannot be zero."):
+        root(16, 0)
+
+def test_root_negative():
+    with pytest.raises(ValueError, match="Cannot take an even or non-integer root of a negative number."):
+        root(-16, 4)
+
+def test_root_zero_to_negative():
+    with pytest.raises(ValueError, match="Zero cannot have a negative root degree."):
+        root(0, -1)
