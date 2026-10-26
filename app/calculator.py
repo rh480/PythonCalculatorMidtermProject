@@ -1,6 +1,11 @@
 
 """Command-line interface for the basic calculator."""
 
+from unittest import result
+
+from app import history
+from app.calculation import Calculation
+
 from app.operations import (
     addition,
     subtraction,
@@ -17,6 +22,8 @@ from app.operations import (
 
 def calculator():
     """Run the basic calculator REPL."""
+
+    history = []  # Stores successful calculations during the current session.
 
     operations = {
         "add": addition,
@@ -38,11 +45,21 @@ def calculator():
             "Enter an operation and two numbers: "
         ).strip().lower()
 
+        #exit command to terminate the calculator
         if user_input == "exit":
             print("Goodbye!")
             break
 
         parts = user_input.split()
+
+        #History command to display previous calculations
+        if user_input == "history":
+            if not history:
+                print("No calculation history yet.")
+            else:
+                for index, entry in enumerate(history, start=1):
+                    print(f"{index}. {entry}")
+            continue
 
         # Validate that the user input has exactly three parts: operation, first number, and second number.
         if len(parts) != 3:
@@ -73,7 +90,18 @@ def calculator():
             print(f"Error: {error}")
             continue
 
-        print(f"Result: {result}")
+        print(f"Result: {result}") #successful calculation output
+
+        #store successful calculation in history
+        history.append(
+            Calculation(
+                operation=operation_name,
+                operand1=a,
+                operand2=b,
+                result=result,
+             )
+        )
+        
 
 
 def main():
