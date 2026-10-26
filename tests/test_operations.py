@@ -1,6 +1,6 @@
 
 import pytest
-from app.operations import addition, subtraction, division, multiplication, power, root, modulus
+from app.operations import addition, subtraction, division, multiplication, power, root, modulus, int_divide
 
 '''Addition function tests'''
 
@@ -150,3 +150,24 @@ def test_modulus(a, b, expected):
 def test_modulus_by_zero():
     with pytest.raises(ValueError):
         modulus(10, 0)
+
+'''Integer Division function tests'''
+
+
+@pytest.mark.parametrize(
+    "a, b, expected",
+    [
+        (15, 5, 3.0), #Test case 1: Integer division of two positive integers that divide evenly. The expected result is 3.0.
+        (7, 2, 3.0), #Test case 2: Integer division of two positive integers that do not divide evenly. The expected result is 3.5.
+        (15, -3, -5.0), #Test case 3: Integer division of a positive integer and a negative integer. The expected result is -5.0.
+        (-7, 2, -3.0), #Test case 4: Integer division of a negative integer and a positive integer that do not divide evenly. The expected result is -3.5.
+        (0, 5, 0.0), #Test case 5: Integer division of zero and a positive integer. The expected result is 0.0.
+    ],
+)
+def test_int_divide(a, b, expected):
+    assert int_divide(a, b) == expected
+
+
+def test_int_divide_by_zero():
+    with pytest.raises(ValueError):
+        int_divide(10, 0)

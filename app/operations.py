@@ -49,3 +49,10 @@ def modulus(a: float, b: float) -> float:
         raise ValueError("Cannot calculate modulus with zero.")
     result = a % b
     return 0.0 if result == 0 else result
+
+
+def int_divide(a: float, b: float) -> float:
+    #Returns the integer quotient of two numbers. The function takes two float inputs, 'a' and 'b', and returns the quotient with the fractional part discarded as a float.
+    if b == 0:  # Checks if 'b' is zero. If it is, we raise an error and stop the function.
+        raise ValueError("Integer division by zero is not allowed.")  # This sends an error message when someone tries to perform integer division by zero.
+    return float(int(a / b))  # Divides 'a' by 'b', discards the fractional part, converts the result to a float, and returns it.
