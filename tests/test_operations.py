@@ -108,7 +108,7 @@ def test_power_zero_to_negative_exponent():
         (16, 4, 2),  # Test case 1: Taking the fourth root of a positive integer. The expected result is 2.
         (-27, 3, -3),  # Test case 2: Taking the cube root of a negative integer. The expected result is -3.
         (0, 3, 0),  # Test case 3: Taking the cube root of zero. The expected result is 0.
-        (16, -4, 0.5),  # Test case 4: Taking the fourth root of a negative integer. The expected result is 0.5.
+        (16, -4, 0.5),  # Test case 4: Taking the reciprocal of the fourth root of 16. The expected result is 0.5.
         (0.25, 0.5, 0.0625),  # Test case 5: Taking the 0.5th root of a decimal number. The expected result is 0.0625.
     ],
 )
@@ -158,9 +158,9 @@ def test_modulus_by_zero():
     "a, b, expected",
     [
         (15, 5, 3.0), #Test case 1: Integer division of two positive integers that divide evenly. The expected result is 3.0.
-        (7, 2, 3.0), #Test case 2: Integer division of two positive integers that do not divide evenly. The expected result is 3.5.
+        (7, 2, 3.0), #Test case 2: Integer division of two positive integers that do not divide evenly. The expected result is 3.0. Truncates 3.5 toward zero.
         (15, -3, -5.0), #Test case 3: Integer division of a positive integer and a negative integer. The expected result is -5.0.
-        (-7, 2, -3.0), #Test case 4: Integer division of a negative integer and a positive integer that do not divide evenly. The expected result is -3.5.
+        (-7, 2, -3.0), #Test case 4: Integer division of a negative integer and a positive integer that do not divide evenly. The expected result is -3.0. Truncates -3.5 toward zero.
         (0, 5, 0.0), #Test case 5: Integer division of zero and a positive integer. The expected result is 0.0.
     ],
 )
