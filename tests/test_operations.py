@@ -1,6 +1,6 @@
 
 import pytest
-from app.operations import addition, subtraction, division, multiplication, power, root, modulus, int_divide
+from app.operations import addition, percent, subtraction, division, multiplication, power, root, modulus, int_divide
 
 '''Addition function tests'''
 
@@ -171,3 +171,25 @@ def test_int_divide(a, b, expected):
 def test_int_divide_by_zero():
     with pytest.raises(ValueError):
         int_divide(10, 0)
+
+
+'''Percent function tests'''
+
+@pytest.mark.parametrize(
+    "a, b, expected",
+    [
+        (25, 100, 25.0),  # Test case 1: Calculates 25 as a percentage of 100. The expected result is 25.0.
+        (50, 200, 25.0),  # Test case 2: Calculates 50 as a percentage of 200. The expected result is 25.0.
+        (15, 30, 50.0),  # Test case 3: Calculates 15 as a percentage of 30. The expected result is 50.0.
+        (10, 0.5, 2000.0),  # Test case 4: Calculates 10 as a percentage of 0.5. The expected result is 2000.0.
+        (0, 100, 0.0),  # Test case 5: Calculates zero as a percentage of 100. The expected result is 0.0.
+        (1, 8, 12.5),  # Test case 6: Calculates 1 as a percentage of 8. The expected result is 12.5.
+    ],
+)
+def test_percent(a, b, expected):
+    assert percent(a, b) == pytest.approx(expected)
+
+
+def test_percent_by_zero():
+    with pytest.raises(ValueError):
+        percent(10, 0)

@@ -56,3 +56,10 @@ def int_divide(a: float, b: float) -> float:
     if b == 0:  # Checks if 'b' is zero. If it is, we raise an error and stop the function.
         raise ValueError("Integer division by zero is not allowed.")  # This sends an error message when someone tries to perform integer division by zero.
     return float(int(a / b))  # Divides 'a' by 'b', discards the fractional part, converts the result to a float, and returns it.
+
+
+def percent(a: float, b: float) -> float:
+    #Returns the percentage of 'a' with respect to 'b'. The function takes two float inputs, 'a' and 'b', and returns (a / b) * 100 as a float.
+    if b == 0:  # Checks if 'b' is zero. If it is, we raise an error and stop the function.
+        raise ValueError("Cannot calculate a percentage with zero as the second number.")  # This sends an error message when someone tries to calculate a percentage with zero as the second number.
+    return (a / b) * 100  # Divides 'a' by 'b', multiplies the result by 100, and returns the percentage.
