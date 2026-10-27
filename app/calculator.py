@@ -1,42 +1,84 @@
 
 """Command-line interface for the basic calculator."""
 
-from unittest import result
+from decimal import Decimal, InvalidOperation
 
-from app import history
 from app.calculation import Calculation
-
 from app.operations import (
-    addition,
-    subtraction,
-    multiplication,
-    division,
-    power,
-    root,
-    modulus,
-    int_divide,
-    percent,
-    absolute_difference,
+    OperationError,
+    Addition,
+    Subtraction,
+    Multiplication,
+    Division,
+    Power,
+    Root,
+    Modulus,
+    IntegerDivision,
+    Percentage,
+    AbsoluteDifference,
 )
 
 
+class Calculator:
+    """Manage calculator operations and calculation history."""
+
+    def __init__(self):
+        """Initialize available operations and an empty history."""
+        self.history = []
+        self.operation_strategy = None
+
+        # Map commands to their operation classes.
+        self.operations = {
+            "add": Addition,
+            "subtract": Subtraction,
+            "multiply": Multiplication,
+            "divide": Division,
+            "power": Power,
+            "root": Root,
+            "modulus": Modulus,
+            "int_divide": IntegerDivision,
+            "percent": Percentage,
+            "abs_diff": AbsoluteDifference,
+            "absolute_difference": AbsoluteDifference,
+        }
+
+    def set_operation(self, operation):
+        """Set the operation strategy used for a calculation."""
+        self.operation_strategy = operation
+
+    def perform_operation(self, a, b):
+        """Execute the selected operation and record the calculation."""
+        if self.operation_strategy is None:
+            raise OperationError("No operation set.")
+
+        result = self.operation_strategy.execute(a, b)
+
+        calculation = Calculation(
+            operation=str(self.operation_strategy),
+            operand1=a,
+            operand2=b,
+            result=result,
+        )
+
+        self.history.append(calculation)
+        return result
+
+    def show_history(self):
+        """Return a formatted list of previous calculations."""
+        return [
+            f"{item.operation}({item.operand1}, {item.operand2}) = "
+            f"{item.result}"
+            for item in self.history
+        ]
+
+    def clear_history(self):
+        """Clear the calculation history."""
+        self.history.clear()
+
+
 def calculator():
-    """Run the basic calculator REPL."""
-
-    history = []  # Stores successful calculations during the current session.
-
-    operations = {
-        "add": addition,
-        "subtract": subtraction,
-        "multiply": multiplication,
-        "divide": division,
-        "power": power,
-        "root": root,
-        "modulus": modulus,
-        "int_divide": int_divide,
-        "percent": percent,
-        "absolute_difference": absolute_difference,
-    }
+    """Run the calculator command-line interface."""
+    calc = Calculator()
 
     print("Welcome to the calculator! Type 'exit' to quit.")
 
@@ -45,63 +87,53 @@ def calculator():
             "Enter an operation and two numbers: "
         ).strip().lower()
 
-        #exit command to terminate the calculator
-        if user_input.lower() == "exit":
+        if user_input == "exit":
             print("Goodbye!")
             break
 
-        parts = user_input.split()
+        if user_input == "history":
+            entries = calc.show_history()
 
-        #History command to display previous calculations
-        if user_input.lower() == "history":
-            if not history:
+            if not entries:
                 print("No calculation history yet.")
             else:
-                for index, entry in enumerate(history, start=1):
+                for index, entry in enumerate(entries, start=1):
                     print(f"{index}. {entry}")
+
             continue
 
-        # Validate that the user input has exactly three parts: operation, first number, and second number.
+        parts = user_input.split()
+
         if len(parts) != 3:
             print("Invalid input. Example: add 5 3")
             continue
 
         operation_name, first, second = parts
 
-        # Check if the operation is supported.
-        if operation_name not in operations:
-            print(f"Unknown operation: {operation_name}. Example: add 5 3")
+        if operation_name not in calc.operations:
+            print(
+                f"Unknown operation: {operation_name}. "
+                "Example: add 5 3"
+            )
             continue
 
-        # Validate that both inputs are numbers.
         try:
-            a = float(first)
-            b = float(second)
-        except ValueError:
-            print("Cannot use letters. Please enter numbers only. Example: add 5 3")
-            continue
+            a = Decimal(first)
+            b = Decimal(second)
 
-        # Perform the calculation.
-        try:
-            a = float(first)
-            b = float(second)
-            result = operations[operation_name](a, b)
-        except ValueError as error:
+            operation_class = calc.operations[operation_name]
+            calc.set_operation(operation_class())
+
+            result = calc.perform_operation(a, b)
+            print(f"Result: {result}")
+
+        except (InvalidOperation, ValueError):
+            print(
+                "Invalid numbers. Please enter valid numbers. "
+                "Example: add 5 3"
+            )
+        except OperationError as error:
             print(f"Error: {error}")
-            continue
-
-        print(f"Result: {result}") #successful calculation output
-
-        #store successful calculation in history
-        history.append(
-            Calculation(
-                operation=operation_name,
-                operand1=a,
-                operand2=b,
-                result=result,
-             )
-        )
-        
 
 
 def main():
