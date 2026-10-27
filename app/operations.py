@@ -1,69 +1,206 @@
-"""Basic arithmetic operations for the calculator."""
+"""Arithmetic operations for the calculator.
 
-def addition(a: float, b:float) -> float:
-    #Returns the sum of two numbers. The function takes two float inputs, 'a' and 'b', and returns their sum as a float.
-    return a + b
+Each operation is a class with an execute(a, b) method that takes two Decimal
+numbers and returns a Decimal. OperationFactory creates operation objects from
+command names such as 'add' or 'int_divide'.
+"""
 
+from abc import ABC, abstractmethod
+from decimal import Decimal
+from typing import Dict
 
-def subtraction(a: float, b:float) -> float:
-    #Returns the difference of two numbers. The function takes two float inputs, 'a' and 'b', and returns their difference as a float.
-    return a - b
-
-def multiplication(a: float, b:float) -> float:
-    #Returns the product of two numbers. The function takes two float inputs, 'a' and 'b', and returns their product as a float.
-    return a * b
-
-def division(a: float, b: float) -> float:
-    #Returns the quotient of two numbers. The function takes two float inputs, 'a' and 'b', and returns their quotient as a float.
-    if b == 0:  # Checks if 'b' is zero. If it is, we raise an error and stop the function.
-        raise ValueError("Division by zero is not allowed.")  # This sends an error message when someone tries to divide by zero.
-    return a / b  # If 'b' is not zero, divide the first number (a) by the second number (b) and return the result.
-
-def power(a: float, b: float) -> float:
-    #Returns the result of raising 'a' to the power of 'b'. The function takes two float inputs, 'a' and 'b', and returns 'a' raised to the power of 'b' as a float.
-    if a == 0 and b < 0: # Checks if 'a' is zero and 'b' is negative. If both conditions are true, it raises a ValueError with the message "Zero cannot be raised to a negative power."
-        raise ValueError("Zero cannot be raised to a negative power.")
-    return a ** b
+from app.exceptions import ValidationError
 
 
+def without_negative_zero(value: Decimal) -> Decimal:
+    """Return 0 instead of -0.
 
-def root(a: float, b: float) -> float:
-    #Calculate the b-th root of a.
-    if b == 0: # Checks if 'b' is zero. If it is, we raise an error and stop the function.
-        raise ValueError("The degree of the root cannot be zero.")
-    if a == 0 and b < 0: # Checks if 'a' is zero and 'b' is negative. If both conditions are true, it raises a ValueError with the message "Zero cannot have a negative root degree."
-        raise ValueError("Zero cannot have a negative root degree.")
-    if a < 0: # Checks if 'a' is negative. If it is, we check if 'b' is an even integer or not. If 'b' is an even integer or a non-integer, we raise a ValueError with the message "Cannot take an even or non-integer root of a negative number."
-        if not float(b).is_integer() or int(b) % 2 == 0:
-            raise ValueError(
-                "Cannot take an even or non-integer root of a negative number."
-            )
-        return -((-a) ** (1 / b))
-
-    return a ** (1 / b)
+    Decimal keeps the sign on a zero result (for example -6 % 3 gives -0),
+    which would be displayed as "-0".
+    """
+    return Decimal(0) if value == 0 else value
 
 
-def modulus(a: float, b: float) -> float:
-    #Return the remainder after dividing a by b.
-    if b == 0: # Checks if 'b' is zero. If it is, we raise an error and stop the function.
-        raise ValueError("Cannot calculate modulus with zero.")
-    result = a % b
-    return 0.0 if result == 0 else result
+class Operation(ABC):
+    """
+    Abstract base class for calculator operations.
+
+    Every operation takes exactly two numbers. Subclasses must implement
+    execute() and may override validate_operands() to reject bad input.
+    """
+
+    @abstractmethod
+    def execute(self, a: Decimal, b: Decimal) -> Decimal:
+        """Perform the operation on a and b and return the result."""
+        pass  # pragma: no cover
+
+    def validate_operands(self, a: Decimal, b: Decimal) -> None:
+        """Raise ValidationError if the operands are not allowed (default: accept all)."""
+        pass
+
+    def __str__(self) -> str:
+        """Return the class name, which Calculation uses to find the operation."""
+        return self.__class__.__name__
 
 
-def int_divide(a: float, b: float) -> float:
-    #Returns the integer quotient of two numbers. The function takes two float inputs, 'a' and 'b', and returns the quotient with the fractional part discarded as a float.
-    if b == 0:  # Checks if 'b' is zero. If it is, we raise an error and stop the function.
-        raise ValueError("Integer division by zero is not allowed.")  # This sends an error message when someone tries to perform integer division by zero.
-    return float(int(a / b))  # Divides 'a' by 'b', discards the fractional part, converts the result to a float, and returns it.
+class DivisorOperation(Operation):
+    """Base for operations whose second operand cannot be zero.
+
+    Division, Modulus, IntDivide and Percent all share this zero check, so it
+    lives here once. Subclasses only set their own error message.
+    """
+
+    zero_message = "Second operand cannot be zero"
+
+    def validate_operands(self, a: Decimal, b: Decimal) -> None:
+        super().validate_operands(a, b)
+        if b == 0:
+            raise ValidationError(self.zero_message)
 
 
-def percent(a: float, b: float) -> float:
-    #Returns the percentage of 'a' with respect to 'b'. The function takes two float inputs, 'a' and 'b', and returns (a / b) * 100 as a float.
-    if b == 0:  # Checks if 'b' is zero. If it is, we raise an error and stop the function.
-        raise ValueError("Cannot calculate a percentage with zero as the second number.")  # This sends an error message when someone tries to calculate a percentage with zero as the second number.
-    return (a / b) * 100  # Divides 'a' by 'b', multiplies the result by 100, and returns the percentage.
+class Addition(Operation):
+    """Add two numbers."""
 
-def absolute_difference(a: float, b: float) -> float:
-    #Returns the absolute difference between two numbers. The function takes two float inputs, 'a' and 'b', and returns the non-negative difference between them as a float.
-    return abs(a - b)  # Subtracts 'b' from 'a', takes the absolute value, and returns the result.
+    def execute(self, a: Decimal, b: Decimal) -> Decimal:
+        self.validate_operands(a, b)
+        return a + b
+
+
+class Subtraction(Operation):
+    """Subtract the second number from the first."""
+
+    def execute(self, a: Decimal, b: Decimal) -> Decimal:
+        self.validate_operands(a, b)
+        return a - b
+
+
+class Multiplication(Operation):
+    """Multiply two numbers."""
+
+    def execute(self, a: Decimal, b: Decimal) -> Decimal:
+        self.validate_operands(a, b)
+        return a * b
+
+
+class Division(DivisorOperation):
+    """Divide the first number by the second."""
+
+    zero_message = "Division by zero is not allowed"
+
+    def execute(self, a: Decimal, b: Decimal) -> Decimal:
+        self.validate_operands(a, b)
+        return a / b
+
+
+class Power(Operation):
+    """Raise the first number to the power of the second."""
+
+    def validate_operands(self, a: Decimal, b: Decimal) -> None:
+        super().validate_operands(a, b)
+        if b < 0:  # negative exponents are not supported
+            raise ValidationError("Negative exponents not supported")
+
+    def execute(self, a: Decimal, b: Decimal) -> Decimal:
+        self.validate_operands(a, b)
+        return Decimal(pow(float(a), float(b)))
+
+
+class Root(Operation):
+    """Calculate the b-th root of a."""
+
+    def validate_operands(self, a: Decimal, b: Decimal) -> None:
+        super().validate_operands(a, b)
+        if a < 0:  # roots of negative numbers are not supported
+            raise ValidationError("Cannot calculate root of negative number")
+        if b == 0:  # a root of degree zero is undefined
+            raise ValidationError("Zero root is undefined")
+        if a == 0 and b < 0:  # would mean dividing by zero
+            raise ValidationError("Zero cannot have a negative root degree")
+
+    def execute(self, a: Decimal, b: Decimal) -> Decimal:
+        self.validate_operands(a, b)
+        return Decimal(pow(float(a), 1 / float(b)))
+
+
+class Modulus(DivisorOperation):
+    """Remainder after dividing a by b (takes the sign of a)."""
+
+    zero_message = "Modulus by zero is not allowed"
+
+    def execute(self, a: Decimal, b: Decimal) -> Decimal:
+        self.validate_operands(a, b)
+        return without_negative_zero(a % b)
+
+
+class IntDivide(DivisorOperation):
+    """Quotient of a divided by b with the fractional part discarded."""
+
+    zero_message = "Integer division by zero is not allowed"
+
+    def execute(self, a: Decimal, b: Decimal) -> Decimal:
+        self.validate_operands(a, b)
+        return without_negative_zero(a // b)  # // truncates toward zero
+
+
+class Percent(DivisorOperation):
+    """Percentage of a with respect to b: (a / b) * 100."""
+
+    zero_message = "Cannot calculate a percentage with zero as the second number"
+
+    def execute(self, a: Decimal, b: Decimal) -> Decimal:
+        self.validate_operands(a, b)
+        return (a / b) * 100
+
+
+class AbsDiff(Operation):
+    """Absolute (non-negative) difference between a and b."""
+
+    def execute(self, a: Decimal, b: Decimal) -> Decimal:
+        self.validate_operands(a, b)
+        return abs(a - b)
+
+
+class OperationFactory:
+    """
+    Factory that creates operation instances from command names.
+
+    Keeping creation in one place means the REPL and Calculator never need to
+    know which class handles which command.
+    """
+
+    # Maps each command name to the class that implements it
+    _operations: Dict[str, type] = {
+        'add': Addition,
+        'subtract': Subtraction,
+        'multiply': Multiplication,
+        'divide': Division,
+        'power': Power,
+        'root': Root,
+        'modulus': Modulus,
+        'int_divide': IntDivide,
+        'percent': Percent,
+        'abs_diff': AbsDiff,
+    }
+
+    @classmethod
+    def register_operation(cls, name: str, operation_class: type) -> None:
+        """Register a new operation class under a command name.
+
+        Raises:
+            TypeError: If operation_class does not inherit from Operation.
+        """
+        if not issubclass(operation_class, Operation):
+            raise TypeError("Operation class must inherit from Operation")
+        cls._operations[name.lower()] = operation_class
+
+    @classmethod
+    def create_operation(cls, operation_type: str) -> Operation:
+        """Create an operation instance from its command name (case-insensitive).
+
+        Raises:
+            ValueError: If the operation type is unknown.
+        """
+        operation_class = cls._operations.get(operation_type.lower())
+        if not operation_class:
+            raise ValueError(f"Unknown operation: {operation_type}")
+        return operation_class()
