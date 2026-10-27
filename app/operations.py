@@ -1,30 +1,71 @@
-"""Basic arithmetic operations for the calculator."""
+# app/operations.py
+"""Arithmetic operations and the factory that creates them."""
 
-def addition(a: float, b:float) -> float:
-    #Returns the sum of two numbers. The function takes two float inputs, 'a' and 'b', and returns their sum as a float.
-    return a + b
+from abc import ABC, abstractmethod
+from decimal import Decimal
+from typing import Dict, Type
+
+from app.exceptions import OperationError
 
 
-def subtraction(a: float, b:float) -> float:
-    #Returns the difference of two numbers. The function takes two float inputs, 'a' and 'b', and returns their difference as a float.
-    return a - b
+def without_negative_zero(value: Decimal) -> Decimal:
+    """Return Decimal(0) instead of -0 so results print cleanly."""
+    return Decimal(0) if value == 0 else value
 
-def multiplication(a: float, b:float) -> float:
-    #Returns the product of two numbers. The function takes two float inputs, 'a' and 'b', and returns their product as a float.
-    return a * b
 
-def division(a: float, b: float) -> float:
-    #Returns the quotient of two numbers. The function takes two float inputs, 'a' and 'b', and returns their quotient as a float.
-    if b == 0:  # Checks if 'b' is zero. If it is, we raise an error and stop the function.
-        raise ValueError("Division by zero is not allowed.")  # This sends an error message when someone tries to divide by zero.
-    return a / b  # If 'b' is not zero, divide the first number (a) by the second number (b) and return the result.
+class Operation(ABC):
+    """Base class: every operation takes exactly two numbers."""
+
+    description = ""  # shown in the help menu
+
+    @abstractmethod
+    def execute(self, a: Decimal, b: Decimal) -> Decimal:
+        """Apply the operation to a and b and return the result."""
+
+    @staticmethod
+    def _require_nonzero(value: Decimal, message: str) -> None:
+        """Shared guard so zero checks are not repeated in each class."""
+        if value == 0:
+            raise OperationError(message)
+
+
+class Addition(Operation):
+    description = "Add two numbers"
+
+    def execute(self, a: Decimal, b: Decimal) -> Decimal:
+        return a + b
+
+
+class Subtraction(Operation):
+    description = "Subtract the second number from the first"
+
+    def execute(self, a: Decimal, b: Decimal) -> Decimal:
+        return a - b
+
+
+class Multiplication(Operation):
+    description = "Multiply two numbers"
+
+    def execute(self, a: Decimal, b: Decimal) -> Decimal:
+        return a * b
+
+
+class Division(Operation):
+    description = "Divide the first number by the second"
+
+    def execute(self, a: Decimal, b: Decimal) -> Decimal:
+        self._require_nonzero(b, "Division by zero is not allowed.")
+        return a / b
+
+
+
+
 
 def power(a: float, b: float) -> float:
     #Returns the result of raising 'a' to the power of 'b'. The function takes two float inputs, 'a' and 'b', and returns 'a' raised to the power of 'b' as a float.
     if a == 0 and b < 0: # Checks if 'a' is zero and 'b' is negative. If both conditions are true, it raises a ValueError with the message "Zero cannot be raised to a negative power."
         raise ValueError("Zero cannot be raised to a negative power.")
     return a ** b
-
 
 
 def root(a: float, b: float) -> float:
