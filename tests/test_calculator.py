@@ -4,6 +4,10 @@
 from decimal import Decimal
 
 import pytest
+import pandas as pd
+
+from app.calculator_config import CalculatorConfig
+from app.exceptions import PersistenceError
 
 from app.calculator import Calculator, calculator
 from app.operations import (
@@ -251,3 +255,175 @@ def test_undo_restores_history_after_clear():
     assert calc.undo() is True
     assert len(calc.history) == 1
     assert calc.history[0].result == Decimal("5")
+
+
+
+# Tests for CSV persistence
+
+@pytest.fixture
+def temporary_calc(tmp_path):
+    """Create a calculator that uses temporary files."""
+    config = CalculatorConfig(base_dir=tmp_path)
+    return Calculator(config=config)
+
+
+def test_save_and_load_history(temporary_calc, tmp_path):
+    temporary_calc.set_operation(Addition())
+    temporary_calc.perform_operation(Decimal("2"), Decimal("3"))
+
+    file_path = tmp_path / "test_history.csv"
+    temporary_calc.save_history(file_path)
+
+    # Load the saved history into a separate calculator.
+    config = CalculatorConfig(base_dir=tmp_path / "other")
+    restored_calc = Calculator(config=config)
+    restored_calc.load_history(file_path)
+
+    assert len(restored_calc.history) == 1
+    assert restored_calc.history[0].result == Decimal("5")
+
+
+def test_save_empty_history(temporary_calc, tmp_path):
+    file_path = tmp_path / "empty_history.csv"
+
+    temporary_calc.save_history(file_path)
+
+    dataframe = pd.read_csv(file_path)
+
+    assert dataframe.empty
+    assert "operation" in dataframe.columns
+    assert "timestamp" in dataframe.columns
+
+
+def test_load_missing_history_file(temporary_calc, tmp_path):
+    file_path = tmp_path / "missing.csv"
+
+    temporary_calc.load_history(file_path)
+
+    assert temporary_calc.history == []
+
+
+def test_load_invalid_history_file(temporary_calc, tmp_path):
+    file_path = tmp_path / "invalid.csv"
+    file_path.write_text("wrong_column\nvalue\n", encoding="utf-8")
+
+    with pytest.raises(PersistenceError):
+        temporary_calc.load_history(file_path)
+
+
+def test_get_history_dataframe(temporary_calc):
+    temporary_calc.set_operation(Addition())
+    temporary_calc.perform_operation(Decimal("2"), Decimal("3"))
+
+    dataframe = temporary_calc.get_history_dataframe()
+
+    assert len(dataframe) == 1
+    assert dataframe.iloc[0]["operation"] == "Addition"
+    assert Decimal(dataframe.iloc[0]["result"]) == Decimal("5")
+
+
+# Tests for undo and redo behavior
+
+def test_new_calculation_clears_redo_stack(temporary_calc):
+    temporary_calc.set_operation(Addition())
+
+    temporary_calc.perform_operation(Decimal("2"), Decimal("3"))
+    temporary_calc.undo()
+
+    temporary_calc.perform_operation(Decimal("4"), Decimal("5"))
+
+    assert temporary_calc.redo() is False
+
+
+def test_clear_empty_history_does_not_create_undo_state(temporary_calc):
+    temporary_calc.clear_history()
+
+    assert temporary_calc.undo() is False
+
+
+# Tests for additional CLI commands
+
+def test_help_command(monkeypatch, capsys):
+    output = run_calculator(
+        monkeypatch, capsys, ["help", "exit"]
+    )
+
+    assert "Operations:" in output
+    assert "save" in output
+    assert "load" in output
+
+#  test clear command and undo/redo commands
+def test_clear_command(monkeypatch, capsys):
+    output = run_calculator(
+        monkeypatch,
+        capsys,
+        ["add 2 3", "clear", "history", "exit"],
+    )
+
+    assert "Calculation history cleared." in output
+    assert "No calculation history yet." in output
+
+
+def test_undo_command(monkeypatch, capsys):
+    output = run_calculator(
+        monkeypatch, capsys, ["add 2 3", "undo", "history", "exit"]
+    )
+
+    assert "Last action undone." in output
+    assert "No calculation history yet." in output
+
+
+def test_redo_command(monkeypatch, capsys):
+    output = run_calculator(
+        monkeypatch, capsys,
+        ["add 2 3", "undo", "redo", "history", "exit"],
+    )
+
+    assert "Last action restored." in output
+    assert "Addition(2, 3) = 5" in output
+
+
+
+# Test save command and error handling
+
+def test_save_command(monkeypatch, capsys, tmp_path):
+    config = CalculatorConfig(base_dir=tmp_path)
+    calc = Calculator(config=config)
+    calc.set_operation(Addition())
+    calc.perform_operation(Decimal("2"), Decimal("3"))
+
+    monkeypatch.setattr("app.calculator.Calculator", lambda: calc)
+
+    output = run_calculator(monkeypatch, capsys, ["save", "exit"])
+
+    assert "History saved to" in output
+    assert calc.config.history_file.exists()
+
+
+def test_save_command_with_empty_history(monkeypatch, capsys, tmp_path):
+    config = CalculatorConfig(base_dir=tmp_path)
+    calc = Calculator(config=config)
+
+    monkeypatch.setattr("app.calculator.Calculator", lambda: calc)
+
+    output = run_calculator(monkeypatch, capsys, ["save", "exit"])
+
+    assert "History saved to" in output
+    assert calc.config.history_file.exists()
+
+
+def test_save_command_handles_persistence_error(
+    monkeypatch, capsys, tmp_path
+):
+    config = CalculatorConfig(base_dir=tmp_path)
+    calc = Calculator(config=config)
+
+    def fail_save(*args, **kwargs):
+        raise PersistenceError("Test save failure")
+
+    monkeypatch.setattr(calc, "save_history", fail_save)
+    monkeypatch.setattr("app.calculator.Calculator", lambda: calc)
+
+    output = run_calculator(monkeypatch, capsys, ["save", "exit"])
+
+    assert "Save failed: Test save failure" in output
