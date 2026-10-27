@@ -2,6 +2,7 @@
 """Command-line interface for the basic calculator."""
 
 from decimal import Decimal, InvalidOperation
+from app.calculator_memento import CalculatorMemento
 
 from app.calculation import Calculation
 from app.operations import (
@@ -25,6 +26,8 @@ class Calculator:
     def __init__(self):
         """Initialize available operations and an empty history."""
         self.history = []
+        self.undo_stack = []
+        self.redo_stack = []
         self.operation_strategy = None
 
         # Map commands to their operation classes.
@@ -46,6 +49,7 @@ class Calculator:
         """Set the operation strategy used for a calculation."""
         self.operation_strategy = operation
 
+
     def perform_operation(self, a, b):
         """Execute the selected operation and record the calculation."""
         if self.operation_strategy is None:
@@ -60,8 +64,43 @@ class Calculator:
             result=result,
         )
 
+        # Save the current history before adding the new calculation.
+        self.undo_stack.append(
+            CalculatorMemento.create(self.history)
+        )
+
+        # A new calculation invalidates previously undone actions.
+        self.redo_stack.clear()
+
         self.history.append(calculation)
         return result
+
+
+    def undo(self):
+        """Restore the previous calculator history."""
+        if not self.undo_stack:
+            return False
+
+        self.redo_stack.append(
+            CalculatorMemento.create(self.history)
+        )
+
+        previous_state = self.undo_stack.pop()
+        self.history = previous_state.get_history()
+        return True
+
+    def redo(self):
+        """Reapply the last undone calculator history."""
+        if not self.redo_stack:
+            return False
+
+        self.undo_stack.append(
+            CalculatorMemento.create(self.history)
+        )
+
+        next_state = self.redo_stack.pop()
+        self.history = next_state.get_history()
+        return True
 
     def show_history(self):
         """Return a formatted list of previous calculations."""
@@ -72,8 +111,13 @@ class Calculator:
         ]
 
     def clear_history(self):
-        """Clear the calculation history."""
-        self.history.clear()
+        """Clear calculation history while allowing undo."""
+        if self.history:
+            self.undo_stack.append(
+                CalculatorMemento.create(self.history)
+            )
+            self.redo_stack.clear()
+            self.history.clear()
 
 
 def calculator():
@@ -101,6 +145,28 @@ def calculator():
                     print(f"{index}. {entry}")
 
             continue
+        
+
+        if user_input == "undo":
+            if calc.undo():
+                print("Last calculation undone.")
+            else:
+                print("Nothing to undo.")
+            continue
+
+        if user_input == "redo":
+            if calc.redo():
+                print("Calculation restored.")
+            else:
+                print("Nothing to redo.")
+            continue
+
+    
+        if user_input == "clear":
+            calc.clear_history()
+            print("Calculation history cleared.")
+            continue
+
 
         parts = user_input.split()
 

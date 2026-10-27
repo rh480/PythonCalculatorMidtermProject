@@ -203,3 +203,51 @@ def test_empty_history_command(monkeypatch, capsys):
     )
 
     assert "No calculation history yet." in output
+
+
+def test_undo_removes_last_calculation():
+    calc = Calculator()
+    calc.set_operation(calc.operations["add"]())
+
+    calc.perform_operation(Decimal("2"), Decimal("3"))
+    calc.undo()
+
+    assert calc.history == []
+
+
+def test_redo_restores_undone_calculation():
+    calc = Calculator()
+    calc.set_operation(calc.operations["add"]())
+
+    calc.perform_operation(Decimal("2"), Decimal("3"))
+    calc.undo()
+    calc.redo()
+
+    assert len(calc.history) == 1
+    assert calc.history[0].result == Decimal("5")
+
+
+def test_undo_returns_false_when_history_is_empty():
+    calc = Calculator()
+
+    assert calc.undo() is False
+
+
+def test_redo_returns_false_when_nothing_was_undone():
+    calc = Calculator()
+
+    assert calc.redo() is False
+
+
+def test_undo_restores_history_after_clear():
+    calc = Calculator()
+    calc.set_operation(calc.operations["add"]())
+
+    calc.perform_operation(Decimal("2"), Decimal("3"))
+    calc.clear_history()
+
+    assert calc.history == []
+
+    assert calc.undo() is True
+    assert len(calc.history) == 1
+    assert calc.history[0].result == Decimal("5")
