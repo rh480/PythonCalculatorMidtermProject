@@ -39,9 +39,9 @@ class Calculation:
     def from_dict(cls, data: Dict[str, Any]) -> "Calculation":
         return cls(
             operation=data["operation"],
-            operand1=float(Decimal(data["operand1"])),
-            operand2=float(Decimal(data["operand2"])),
-            result=float(Decimal(data["result"])),
+            operand1=Decimal(data["operand1"]),
+            operand2=Decimal(data["operand2"]),
+            result=Decimal(data["result"]),
             timestamp=datetime.fromisoformat(data["timestamp"])
         )
 
