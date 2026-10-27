@@ -1,10 +1,17 @@
 
 """Command-line interface for the basic calculator."""
 
+import logging
 from decimal import Decimal, InvalidOperation
-from app.calculator_memento import CalculatorMemento
+
+import pandas as pd
 
 from app.calculation import Calculation
+from app.calculator_config import CalculatorConfig
+from app.calculator_memento import CalculatorMemento
+from app.exceptions import OperationError, ValidationError, PersistenceError
+from app.history import LoggingObserver, AutoSaveObserver
+from app.input_validators import InputValidator
 from app.operations import (
     OperationError,
     Addition,
@@ -23,12 +30,20 @@ from app.operations import (
 class Calculator:
     """Manage calculator operations and calculation history."""
 
-    def __init__(self):
+    def __init__(self, config=None):
+        self.config = config or CalculatorConfig()
+        self.config.validate()
         """Initialize available operations and an empty history."""
         self.history = []
         self.undo_stack = []
         self.redo_stack = []
         self.operation_strategy = None
+
+        self.config = CalculatorConfig()
+        self.observers = [
+            LoggingObserver(),
+            AutoSaveObserver(self),
+            ]
 
         # Map commands to their operation classes.
         self.operations = {
@@ -44,6 +59,136 @@ class Calculator:
             "abs_diff": AbsoluteDifference,
             "absolute_difference": AbsoluteDifference,
         }
+
+        # Configure logging before registering observers.
+        self.config.log_dir.mkdir(parents=True, exist_ok=True)
+        logging.basicConfig(
+            filename=str(self.config.log_file),
+            level=logging.INFO,
+            format="%(asctime)s - %(levelname)s - %(message)s",
+            encoding=self.config.default_encoding,
+            force=True,
+        )
+
+        self.config.history_dir.mkdir(parents=True, exist_ok=True)
+
+        self.observers = [
+            LoggingObserver(),
+            AutoSaveObserver(self),
+        ]
+
+        # Restore previously saved history when available.
+        try:
+            self.load_history()
+        except PersistenceError as error:
+            logging.warning("Could not load saved history: %s", error)
+
+    def save_history(self, file_path=None):
+        """Save calculation history to a CSV file."""
+        path = file_path or self.config.history_file
+
+        columns = [
+            "operation",
+            "operand1",
+            "operand2",
+            "result",
+            "timestamp",
+        ]
+
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+            records = [item.to_dict() for item in self.history]
+            dataframe = pd.DataFrame(records, columns=columns)
+
+            dataframe.to_csv(
+                path,
+                index=False,
+                encoding=self.config.default_encoding,
+            )
+            logging.info("History saved to %s", path)
+
+        except (OSError, ValueError, TypeError) as error:
+            logging.error("Could not save history: %s", error)
+            raise PersistenceError(
+                f"Could not save history: {error}"
+            ) from error
+
+    def load_history(self, file_path=None):
+        """Load calculation history from a CSV file."""
+        path = file_path or self.config.history_file
+
+        if not path.exists():
+            return
+
+        try:
+            dataframe = pd.read_csv(
+                path,
+                dtype=str,
+                keep_default_na=False,
+                encoding=self.config.default_encoding,
+            )
+
+            required_columns = {
+                "operation",
+                "operand1",
+                "operand2",
+                "result",
+                "timestamp",
+            }
+
+            if not required_columns.issubset(dataframe.columns):
+                raise ValueError("History CSV is missing required columns.")
+
+            loaded_history = [
+                Calculation.from_dict(row)
+                for row in dataframe.to_dict(orient="records")
+            ]
+
+            # Apply the configured history limit to loaded records.
+            self.history = loaded_history[-self.config.max_history_size:]
+            self.undo_stack.clear()
+            self.redo_stack.clear()
+
+            logging.info("Loaded %s calculations", len(self.history))
+
+        except (OSError, ValueError, TypeError, KeyError) as error:
+            logging.error("Could not load history: %s", error)
+            raise PersistenceError(
+                f"Could not load history: {error}"
+            ) from error
+
+
+
+    def get_history_dataframe(self):
+        """Return calculation history as a pandas DataFrame."""
+        return pd.DataFrame(
+            [item.to_dict() for item in self.history],
+            columns=[
+                "operation",
+                "operand1",
+                "operand2",
+                "result",
+                "timestamp",
+            ],
+        )
+
+    def show_history(self):
+        """Return a formatted list of previous calculations."""
+        return [
+            f"{item.operation}({item.operand1}, {item.operand2}) = "
+            f"{item.result}"
+            for item in self.history
+        ]
+
+    def clear_history(self):
+        """Clear calculation history while allowing undo."""
+        if self.history:
+            self.undo_stack.append(
+                CalculatorMemento.create(self.history)
+            )
+            self.redo_stack.clear()
+            self.history.clear()
 
     def set_operation(self, operation):
         """Set the operation strategy used for a calculation."""
@@ -102,29 +247,12 @@ class Calculator:
         self.history = next_state.get_history()
         return True
 
-    def show_history(self):
-        """Return a formatted list of previous calculations."""
-        return [
-            f"{item.operation}({item.operand1}, {item.operand2}) = "
-            f"{item.result}"
-            for item in self.history
-        ]
-
-    def clear_history(self):
-        """Clear calculation history while allowing undo."""
-        if self.history:
-            self.undo_stack.append(
-                CalculatorMemento.create(self.history)
-            )
-            self.redo_stack.clear()
-            self.history.clear()
-
 
 def calculator():
     """Run the calculator command-line interface."""
     calc = Calculator()
 
-    print("Welcome to the calculator! Type 'exit' to quit.")
+    print("Welcome to the calculator! Type 'exit' to quit. Type 'help' for commands.")
 
     while True:
         user_input = input(
@@ -145,29 +273,44 @@ def calculator():
                     print(f"{index}. {entry}")
 
             continue
-        
+
+        if user_input == "help":
+            print("Operations: " + ", ".join(calc.operations))
+            print(
+                "Commands: history, clear, undo, redo, "
+                "save, load, help, exit"
+            )
+            print("Example: add 5 3")
+            continue
 
         if user_input == "undo":
-            if calc.undo():
-                print("Last calculation undone.")
-            else:
-                print("Nothing to undo.")
+            print(
+                "Last action undone."
+                if calc.undo()
+                else "Nothing to undo."
+            )
             continue
 
         if user_input == "redo":
-            if calc.redo():
-                print("Calculation restored.")
-            else:
-                print("Nothing to redo.")
+            print(
+                "Last action restored."
+                if calc.redo()
+                else "Nothing to redo."
+            )
             continue
 
-    
         if user_input == "clear":
             calc.clear_history()
             print("Calculation history cleared.")
             continue
 
-
+        if user_input == "save":
+            try:
+                calc.save_history()
+                print(f"History saved to {calc.config.history_file}")
+            except PersistenceError as error:
+                print(f"Save failed: {error}")
+            continue
         parts = user_input.split()
 
         if len(parts) != 3:
