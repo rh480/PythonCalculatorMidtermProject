@@ -20,5 +20,5 @@ def test_calculation_history(capsys, monkeypatch):
     calculator()
 
     captured = capsys.readouterr()
-    assert "1. add(2.0, 3.0) = 5.0" in captured.out
-    assert "2. multiply(4.0, 5.0) = 20.0" in captured.out
+    assert "1. Addition(2, 3) = 5" in captured.out
+    assert "2. Multiplication(4, 5) = 20" in captured.out

@@ -1,179 +1,205 @@
 
-from app.calculator import calculator
+"""Tests for the Calculator class and command-line interface."""
+
+from decimal import Decimal
+
+import pytest
+
+from app.calculator import Calculator, calculator
+from app.operations import (
+    OperationError,
+    Addition,
+    Subtraction,
+    Multiplication,
+    Division,
+    Power,
+    Root,
+    Modulus,
+    IntegerDivision,
+    Percentage,
+    AbsoluteDifference,
+)
 
 
-def test_addition_command(monkeypatch, capsys):
-    #Check that the calculator displays an addition result.
-    inputs = iter(["add 2 3", "exit"])
+# Fixture to initialize Calculator for testing.
+@pytest.fixture
+def calc():
+    """Return a fresh Calculator instance."""
+    return Calculator()
+
+
+# Test Calculator Initialization
+
+def test_calculator_initialization(calc):
+    assert calc.history == []
+    assert calc.operation_strategy is None
+    assert len(calc.operations) == 11
+
+
+# Test Setting Operations
+
+def test_set_operation(calc):
+    operation = Addition()
+    calc.set_operation(operation)
+
+    assert calc.operation_strategy == operation
+
+
+# Test Performing Operations
+
+@pytest.mark.parametrize(
+    "operation, a, b, expected",
+    [
+        (Addition(), "2", "3", "5"),
+        (Subtraction(), "2", "3", "-1"),
+        (Multiplication(), "2", "3", "6"),
+        (Division(), "6", "2", "3"),
+        (Power(), "2", "3", "8"),
+        (Root(), "27", "3", "3"),
+        (Modulus(), "10", "3", "1"),
+        (IntegerDivision(), "7", "2", "3"),
+        (Percentage(), "1", "8", "12.5"),
+        (AbsoluteDifference(), "4", "10", "6"),
+    ],
+)
+def test_perform_operation(calc, operation, a, b, expected):
+    calc.set_operation(operation)
+
+    result = calc.perform_operation(Decimal(a), Decimal(b))
+
+    assert result == Decimal(expected)
+    assert len(calc.history) == 1
+
+
+def test_perform_operation_without_setting_operation(calc):
+    with pytest.raises(OperationError, match="No operation set"):
+        calc.perform_operation(Decimal("2"), Decimal("3"))
+
+
+def test_perform_operation_records_calculation(calc):
+    calc.set_operation(Addition())
+    calc.perform_operation(Decimal("2"), Decimal("3"))
+
+    assert calc.history[0].operation == "Addition"
+    assert calc.history[0].operand1 == Decimal("2")
+    assert calc.history[0].operand2 == Decimal("3")
+    assert calc.history[0].result == Decimal("5")
+
+
+# Test History Management
+
+def test_show_history(calc):
+    calc.set_operation(Addition())
+    calc.perform_operation(Decimal("2"), Decimal("3"))
+
+    history = calc.show_history()
+
+    assert history == ["Addition(2, 3) = 5"]
+
+
+def test_show_empty_history(calc):
+    assert calc.show_history() == []
+
+
+def test_clear_history(calc):
+    calc.set_operation(Addition())
+    calc.perform_operation(Decimal("2"), Decimal("3"))
+
+    calc.clear_history()
+
+    assert calc.history == []
+
+
+# Test Command-Line Interface
+
+def run_calculator(monkeypatch, capsys, inputs):
+    """Run the calculator with simulated user input."""
+    user_inputs = iter(inputs)
     monkeypatch.setattr(
         "builtins.input",
-        lambda _: next(inputs),
+        lambda _: next(user_inputs),
     )
 
     calculator()
+    return capsys.readouterr().out
 
-    output = capsys.readouterr().out
-    assert "Result: 5.0" in output
 
-def test_subtraction_command(monkeypatch, capsys):
-    #Check that the calculator displays a subtraction result.
-    inputs = iter(["subtract 2 3", "exit"])
-    monkeypatch.setattr(
-        "builtins.input",
-        lambda _: next(inputs),
+@pytest.mark.parametrize(
+    "command, expected",
+    [
+        ("add 2 3", "Result: 5"),
+        ("subtract 2 3", "Result: -1"),
+        ("multiply 2 3", "Result: 6"),
+        ("divide 6 2", "Result: 3"),
+        ("power 2 3", "Result: 8"),
+        ("root 27 3", "Result: 3"),
+        ("modulus 10 3", "Result: 1"),
+        ("int_divide 7 2", "Result: 3"),
+        ("percent 1 8", "Result: 12.5"),
+        ("absolute_difference 4 10", "Result: 6"),
+    ],
+)
+def test_calculator_commands(monkeypatch, capsys, command, expected):
+    output = run_calculator(
+        monkeypatch, capsys, [command, "exit"]
     )
 
-    calculator()
-
-    output = capsys.readouterr().out
-    assert "Result: -1.0" in output
-
-def test_multiplication_command(monkeypatch, capsys):
-    #Check that the calculator displays a multiplication result.
-    inputs = iter(["multiply 2 3", "exit"])
-    monkeypatch.setattr(
-        "builtins.input",
-        lambda _: next(inputs),
-    )
-
-    calculator()
-
-    output = capsys.readouterr().out
-    assert "Result: 6.0" in output
-
-def test_division_command(monkeypatch, capsys):
-    #Check that the calculator displays a division result.
-    inputs = iter(["divide 6 2", "exit"])
-    monkeypatch.setattr(
-        "builtins.input",
-        lambda _: next(inputs),
-    )
-
-    calculator()
-
-    output = capsys.readouterr().out
-    assert "Result: 3.0" in output
+    assert expected in output
 
 
 def test_invalid_operation(monkeypatch, capsys):
-    #Check that an unsupported command is rejected.
-    inputs = iter(["unknown 2 3", "exit"])
-    monkeypatch.setattr(
-        "builtins.input",
-        lambda _: next(inputs),
+    output = run_calculator(
+        monkeypatch, capsys, ["unknown 2 3", "exit"]
     )
 
-    calculator()
-
-    output = capsys.readouterr().out
     assert "Unknown operation" in output
 
 
 def test_invalid_input(monkeypatch, capsys):
-    #Check that invalid input is handled gracefully.
-    inputs = iter(["add 2", "exit"])
-    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
-
-    calculator()
-
-    output = capsys.readouterr().out
-    assert "Invalid input" in output
-
-def test_non_numeric_input(monkeypatch, capsys):
-    #Check that non-numeric input is handled gracefully.
-    inputs = iter(["add two three", "exit"])
-    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
-
-    calculator()
-
-    output = capsys.readouterr().out
-    assert "Cannot use letters" in output
-
-def test_exit_command(monkeypatch, capsys):
-    #Check that the calculator exits gracefully.
-    inputs = iter(["exit"])
-    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
-
-    calculator()
-
-    output = capsys.readouterr().out
-    assert "Goodbye!" in output
-
-def test_division_by_zero(monkeypatch, capsys):
-    #Check that division by zero is handled gracefully.
-    inputs = iter(["divide 5 0", "exit"])
-    monkeypatch.setattr(
-        "builtins.input",
-        lambda _: next(inputs),
+    output = run_calculator(
+        monkeypatch, capsys, ["add 2", "exit"]
     )
 
-    calculator()
-
-    output = capsys.readouterr().out
-    assert "Division by zero is not allowed" in output
+    assert "Invalid input" in output
 
 
-def test_power_command(monkeypatch, capsys):
-    #Check that the calculator displays a power result.
-    inputs = iter(["power 2 3", "exit"])
-    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
+def test_non_numeric_input(monkeypatch, capsys):
+    output = run_calculator(
+        monkeypatch, capsys, ["add two three", "exit"]
+    )
 
-    calculator()
-
-    output = capsys.readouterr().out
-    assert "Result: 8.0" in output
+    assert "Invalid numbers" in output
 
 
-def test_root_command(monkeypatch, capsys):
-    #Check that the calculator displays a root result.
-    inputs = iter(["root 27 3", "exit"])
-    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
+def test_division_by_zero(monkeypatch, capsys):
+    output = run_calculator(
+        monkeypatch, capsys, ["divide 5 0", "exit"]
+    )
 
-    calculator()
-
-    output = capsys.readouterr().out
-    assert "Result: 3.0" in output
+    assert "Error:" in output
+    assert "zero" in output.lower()
 
 
-def test_modulus_command(monkeypatch, capsys):
-    #Check that the calculator displays a modulus result.
-    inputs = iter(["modulus 10 3", "exit"])
-    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
+def test_exit_command(monkeypatch, capsys):
+    output = run_calculator(
+        monkeypatch, capsys, ["exit"]
+    )
 
-    calculator()
-
-    output = capsys.readouterr().out
-    assert "Result: 1.0" in output
+    assert "Goodbye!" in output
 
 
-def test_integer_division_command(monkeypatch, capsys):
-    #Check that the calculator displays an integer division result.
-    inputs = iter(["int_divide 7 2", "exit"])
-    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
+def test_history_command(monkeypatch, capsys):
+    output = run_calculator(
+        monkeypatch, capsys, ["add 2 3", "history", "exit"]
+    )
 
-    calculator()
-
-    output = capsys.readouterr().out
-    assert "Result: 3.0" in output
+    assert "Result: 5" in output
+    assert "Addition(2, 3) = 5" in output
 
 
-def test_percent_command(monkeypatch, capsys):
-    #Check that the calculator displays a percentage result.
-    inputs = iter(["percent 1 8", "exit"])
-    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
+def test_empty_history_command(monkeypatch, capsys):
+    output = run_calculator(
+        monkeypatch, capsys, ["history", "exit"]
+    )
 
-    calculator()
-
-    output = capsys.readouterr().out
-    assert "Result: 12.5" in output
-
-
-def test_absolute_difference_command(monkeypatch, capsys):
-    #Check that the calculator displays an absolute difference result.
-    inputs = iter(["absolute_difference 4 10", "exit"])
-    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
-
-    calculator()
-
-    output = capsys.readouterr().out
-    assert "Result: 6.0" in output
+    assert "No calculation history yet." in output
