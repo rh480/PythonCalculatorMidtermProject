@@ -8,6 +8,7 @@ import pandas as pd
 
 from app.calculator_config import CalculatorConfig
 from app.exceptions import PersistenceError
+from app.history import LoggingObserver
 
 from app.calculator import Calculator, calculator
 from app.operations import (
@@ -427,3 +428,117 @@ def test_save_command_handles_persistence_error(
     output = run_calculator(monkeypatch, capsys, ["save", "exit"])
 
     assert "Save failed: Test save failure" in output
+
+
+
+# Tests for load command and error handling
+
+def test_load_command(monkeypatch, capsys, tmp_path):
+    """Test loading saved history through the CLI."""
+    config = CalculatorConfig(base_dir=tmp_path)
+    calc = Calculator(config=config)
+
+    # Create and save a calculation.
+    calc.set_operation(Addition())
+    calc.perform_operation(Decimal("2"), Decimal("3"))
+    calc.save_history()
+
+    # Clear the in-memory history before loading.
+    calc.history = []
+    assert calc.history == []
+
+    monkeypatch.setattr("app.calculator.Calculator", lambda: calc)
+
+    output = run_calculator(monkeypatch, capsys, ["load", "exit"])
+
+    assert "History loaded" in output
+    assert len(calc.history) == 1
+    assert calc.history[0].result == Decimal("5")
+
+
+def test_load_command_with_missing_file(monkeypatch, capsys, tmp_path):
+    """Test the CLI message when no saved history file exists."""
+    config = CalculatorConfig(base_dir=tmp_path)
+    calc = Calculator(config=config)
+
+    assert not calc.config.history_file.exists()
+
+    monkeypatch.setattr("app.calculator.Calculator", lambda: calc)
+
+    output = run_calculator(monkeypatch, capsys, ["load", "exit"])
+
+    assert "No saved history file found." in output
+
+
+def test_load_command_handles_persistence_error(
+    monkeypatch, capsys, tmp_path
+):
+    """Test that the CLI handles history-loading errors."""
+    config = CalculatorConfig(base_dir=tmp_path)
+    calc = Calculator(config=config)
+
+    # Create a file so the CLI proceeds to load_history().
+    config.history_file.parent.mkdir(parents=True, exist_ok=True)
+    config.history_file.write_text(
+        "wrong_column\nvalue\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr("app.calculator.Calculator", lambda: calc)
+
+    output = run_calculator(monkeypatch, capsys, ["load", "exit"])
+
+    assert "Load failed:" in output
+
+
+
+# Tests for logging setup
+def _read(path):
+    """Return the text of a file."""
+    return path.read_text(encoding="utf-8")
+
+def test_logging_setup_records_initialization(calc):
+    assert "Calculator initialized" in _read(calc.config.log_file)
+
+
+def test_logging_setup_error_is_raised(monkeypatch):
+    def fail(*args, **kwargs):
+        raise OSError("Permission denied")
+
+    monkeypatch.setattr("app.calculator.configure_logger", fail)
+
+    with pytest.raises(OSError, match="Permission denied"):
+        Calculator()
+
+
+# Tests for registering and removing observers
+
+def test_register_observer(calc):
+    observer = LoggingObserver()
+    calc.register_observer(observer)
+
+    assert observer in calc.observers
+
+
+def test_remove_observer(calc):
+    observer = LoggingObserver()
+    calc.register_observer(observer)
+    calc.remove_observer(observer)
+
+    assert observer not in calc.observers
+
+
+def test_removed_observer_is_not_notified(calc):
+    seen = []
+
+    class Spy:
+        def update(self, calculation):
+            seen.append(calculation)
+
+    spy = Spy()
+    calc.register_observer(spy)
+    calc.remove_observer(spy)
+    calc.set_operation(Addition())
+    calc.perform_operation(Decimal("1"), Decimal("1"))
+
+    assert seen == []

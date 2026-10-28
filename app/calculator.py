@@ -57,15 +57,24 @@ class Calculator:
             "absolute_difference": AbsoluteDifference,
         }
 
-        self.observers = []
-        self.register_observer(LoggingObserver())
-        self.register_observer(AutoSaveObserver(self))
-
         # Configure logging before registering observers.
         configure_logger(
             self.config.log_file,
             self.config.default_encoding,
         )
+
+        self.config.history_dir.mkdir(parents=True, exist_ok=True)
+
+        self.observers = []
+        self.register_observer(LoggingObserver())
+        self.register_observer(AutoSaveObserver(self))
+        logging.info("Calculator initialized")
+
+        # Restore previously saved history when available.
+        try:
+            self.load_history()
+        except PersistenceError as error:
+            logging.warning("Could not load saved history: %s", error)
 
         self.config.history_dir.mkdir(parents=True, exist_ok=True)
 
@@ -92,6 +101,10 @@ class Calculator:
                 logging.error(
                     "Observer %s failed: %s", type(observer).__name__, error
                 )
+    
+    def remove_observer(self, observer):
+        """Stop notifying an observer."""
+        self.observers.remove(observer)
 
     def save_history(self, file_path=None):
         """Save calculation history to a CSV file."""
@@ -228,6 +241,7 @@ class Calculator:
         self.redo_stack.clear()
 
         self.history.append(calculation)
+        self.notify_observers(calculation)
         return result
 
 
