@@ -14,7 +14,14 @@ from app.history import LoggingObserver, AutoSaveObserver
 from app.input_validators import InputValidator
 from app.logger import configure_logger
 from app.color_coded import success, error as color_error, warning, info, prompt
-
+from app.commands import (
+    UndoCommand,
+    RedoCommand,
+    ClearHistoryCommand,
+    HistoryCommand,
+    SaveHistoryCommand,
+    LoadHistoryCommand,
+)
 
 from app.operations import OperationFactory
 
@@ -268,7 +275,7 @@ def calculator():
             break
 
         if user_input == "history":
-            entries = calc.show_history()
+            entries = HistoryCommand(calc).execute()
 
             if not entries:
                 print(warning("No calculation history yet."))
@@ -294,27 +301,27 @@ def calculator():
             continue
 
         if user_input == "undo":
-            if calc.undo():
+            if UndoCommand(calc).execute():
                 print(success("Last action undone."))
             else:
                 print(warning("Nothing to undo."))
             continue
 
         if user_input == "redo":
-            if calc.redo():
+            if RedoCommand(calc).execute():
                 print(success("Last action restored."))
             else:
                 print(warning("Nothing to redo."))
             continue
 
         if user_input == "clear":
-            calc.clear_history()
+            ClearHistoryCommand(calc).execute()
             print(success("Calculation history cleared."))
             continue
 
         if user_input == "save":
             try:
-                calc.save_history()
+                SaveHistoryCommand(calc).execute()
                 print(success(f"History saved to {calc.config.history_file}"))
             except PersistenceError as error:
                 print(color_error(f"Save failed: {error}"))
@@ -327,7 +334,7 @@ def calculator():
                     print(warning("No saved history file found."))
                     continue
 
-                calc.load_history()
+                LoadHistoryCommand(calc).execute()
                 print(
                     success(
                         f"History loaded. "
