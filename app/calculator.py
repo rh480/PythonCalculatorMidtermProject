@@ -1,15 +1,14 @@
 
-"""Command-line interface for the basic calculator."""
+"""Calculator core (history, undo/redo, persistence, observers) and its command-line interface."""
 
 import logging
-from decimal import Decimal, InvalidOperation
 
 import pandas as pd
 
 from app.calculation import Calculation
 from app.calculator_config import CalculatorConfig
 from app.calculator_memento import CalculatorMemento
-from app.exceptions import CalculatorError, OperationError, ValidationError, PersistenceError
+from app.exceptions import CalculatorError, OperationError, PersistenceError
 from app.history import LoggingObserver, AutoSaveObserver
 from app.input_validators import InputValidator
 from app.logger import configure_logger
@@ -25,6 +24,7 @@ from app.commands import (
 
 from app.operations import OperationFactory
 
+HISTORY_COLUMNS = ["operation", "operand1", "operand2", "result", "timestamp"]
 
 class Calculator:
     """Manage calculator operations and calculation history."""
@@ -38,7 +38,6 @@ class Calculator:
         self.redo_stack = []
         self.operation_strategy = None
 
-        self.operations = OperationFactory
         # Configure logging before registering observers.
         configure_logger(
             self.config.log_file,
@@ -58,7 +57,6 @@ class Calculator:
         except PersistenceError as error:
             logging.warning("Could not load saved history: %s", error)
 
-        self.config.history_dir.mkdir(parents=True, exist_ok=True)
     
     def register_observer(self, observer):
         """Add an observer that is told about every new calculation."""
@@ -82,32 +80,26 @@ class Calculator:
         """Stop notifying an observer."""
         self.observers.remove(observer)
 
+
     def save_history(self, file_path=None):
         """Save calculation history to a CSV file."""
         path = file_path or self.config.history_file
-
-        columns = [
-            "operation",
-            "operand1",
-            "operand2",
-            "result",
-            "timestamp",
-        ]
 
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
 
             records = [item.to_dict() for item in self.history]
-            dataframe = pd.DataFrame(records, columns=columns)
+            dataframe = pd.DataFrame(records, columns=HISTORY_COLUMNS)
 
             dataframe.to_csv(
                 path,
                 index=False,
                 encoding=self.config.default_encoding,
             )
+
             logging.info("History saved to %s", path)
 
-        except (OSError, ValueError, TypeError) as error:
+        except (OSError, ValueError, TypeError, KeyError, ArithmeticError) as error:
             logging.error("Could not save history: %s", error)
             raise PersistenceError(
                 f"Could not save history: {error}"
@@ -128,15 +120,7 @@ class Calculator:
                 encoding=self.config.default_encoding,
             )
 
-            required_columns = {
-                "operation",
-                "operand1",
-                "operand2",
-                "result",
-                "timestamp",
-            }
-
-            if not required_columns.issubset(dataframe.columns):
+            if not set(HISTORY_COLUMNS).issubset(dataframe.columns):
                 raise ValueError("History CSV is missing required columns.")
 
             loaded_history = [
@@ -163,23 +147,14 @@ class Calculator:
         """Return calculation history as a pandas DataFrame."""
         return pd.DataFrame(
             [item.to_dict() for item in self.history],
-            columns=[
-                "operation",
-                "operand1",
-                "operand2",
-                "result",
-                "timestamp",
-            ],
+            columns=HISTORY_COLUMNS,
         )
 
     def show_history(self):
         """Return a formatted list of previous calculations."""
-        return [
-            f"{item.operation}({item.operand1}, {item.operand2}) = "
-            f"{item.result}"
-            for item in self.history
-        ]
+        return [str(item) for item in self.history]
 
+    
     def clear_history(self):
         """Clear calculation history while allowing undo."""
         if self.history:
@@ -188,6 +163,7 @@ class Calculator:
             )
             self.redo_stack.clear()
             self.history.clear()
+            logging.info("History cleared")
 
     def set_operation(self, operation):
         """Set the operation strategy used for a calculation."""
@@ -235,6 +211,7 @@ class Calculator:
     def undo(self):
         """Restore the previous calculator history."""
         if not self.undo_stack:
+            logging.warning("Nothing to undo")
             return False
 
         self.redo_stack.append(
@@ -243,11 +220,13 @@ class Calculator:
 
         previous_state = self.undo_stack.pop()
         self.history = previous_state.get_history()
+        logging.info("Undo performed")
         return True
 
     def redo(self):
         """Reapply the last undone calculator history."""
         if not self.redo_stack:
+            logging.warning("Nothing to redo")
             return False
 
         self.undo_stack.append(
@@ -256,112 +235,125 @@ class Calculator:
 
         next_state = self.redo_stack.pop()
         self.history = next_state.get_history()
+        logging.info("Redo performed")
         return True
+
+
+def handle_history(calc):
+    """Print the calculation history."""
+    entries = HistoryCommand(calc).execute()
+    if not entries:
+        print(warning("No calculation history yet."))
+        return
+    for index, entry in enumerate(entries, start=1):
+        print(info(f"{index}. {entry}"))
+
+
+def handle_help(calc):
+    """Print the help menu; operations come straight from the factory."""
+    print(info("Operations:"))
+    for name, description in OperationFactory.available_operations().items():
+        print(info(f"  {name:<12} - {description}"))
+    print(info("Commands: " + ", ".join([*COMMAND_HANDLERS, "exit"])))
+    print(info("Example: add 5 3"))
+
+
+def handle_undo(calc):
+    """Undo the last change."""
+    if UndoCommand(calc).execute():
+        print(success("Last action undone."))
+    else:
+        print(warning("Nothing to undo."))
+
+
+def handle_redo(calc):
+    """Redo the last undone change."""
+    if RedoCommand(calc).execute():
+        print(success("Last action restored."))
+    else:
+        print(warning("Nothing to redo."))
+
+
+def handle_clear(calc):
+    """Clear the calculation history."""
+    ClearHistoryCommand(calc).execute()
+    print(success("Calculation history cleared."))
+
+
+def handle_save(calc):
+    """Save the history to the CSV file."""
+    try:
+        SaveHistoryCommand(calc).execute()
+        print(success(f"History saved to {calc.config.history_file}"))
+    except PersistenceError as error:
+        print(color_error(f"Save failed: {error}"))
+
+
+def handle_load(calc):
+    """Load the history from the CSV file."""
+    if not calc.config.history_file.exists():
+        print(warning("No saved history file found."))
+        return
+    try:
+        LoadHistoryCommand(calc).execute()
+        print(success(
+            f"History loaded. {len(calc.history)} calculation(s) available."
+        ))
+    except PersistenceError as error:
+        print(color_error(f"Load failed: {error}"))
+
+
+def handle_operation(calc, user_input):
+    """Parse '<operation> <a> <b>', run it and print the result."""
+    parts = user_input.split()
+    if len(parts) != 3:
+        print(color_error("Invalid input. Example: add 5 3"))
+        return
+
+    operation_name, first, second = parts
+    try:
+        calc.set_operation(OperationFactory.create_operation(operation_name))
+        result = calc.perform_operation(first, second)
+        print(success(f"Result: {result}"))
+    except CalculatorError as error:
+        print(color_error(f"Error: {error}"))
+
+
+# Each REPL command word maps to the function that handles it.
+COMMAND_HANDLERS = {
+    "history": handle_history,
+    "clear": handle_clear,
+    "undo": handle_undo,
+    "redo": handle_redo,
+    "save": handle_save,
+    "load": handle_load,
+    "help": handle_help,
+}
 
 
 def calculator():
     """Run the calculator command-line interface."""
     calc = Calculator()
-
-    print("Welcome to the calculator! Type 'exit' to quit. Type 'help' for commands.")
+    print(info("Welcome to the calculator! Type 'exit' to quit. Type 'help' for commands."))
 
     while True:
-        user_input = input(
-            "Enter an operation and two numbers: "
-        ).strip().lower()
+        try:
+            user_input = input(
+                prompt("Enter an operation and two numbers: ")
+            ).strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print(info("\nGoodbye!"))
+            break
 
         if user_input == "exit":
             print(info("Goodbye!"))
             break
 
-        if user_input == "history":
-            entries = HistoryCommand(calc).execute()
-
-            if not entries:
-                print(warning("No calculation history yet."))
-            else:
-                for index, entry in enumerate(entries, start=1):
-                    print(info(f"{index}. {entry}"))
-
-            continue
-
-        if user_input == "help":
-            print(info("Operations:"))
-
-            for name, description in OperationFactory.available_operations().items():
-                print(info(f"  {name:<12} - {description}"))
-
-            print(
-                info(
-                    "Commands: history, clear, undo, redo, "
-                    "save, load, help, exit"
-                )
-            )
-            print(info("Example: add 5 3"))
-            continue
-
-        if user_input == "undo":
-            if UndoCommand(calc).execute():
-                print(success("Last action undone."))
-            else:
-                print(warning("Nothing to undo."))
-            continue
-
-        if user_input == "redo":
-            if RedoCommand(calc).execute():
-                print(success("Last action restored."))
-            else:
-                print(warning("Nothing to redo."))
-            continue
-
-        if user_input == "clear":
-            ClearHistoryCommand(calc).execute()
-            print(success("Calculation history cleared."))
-            continue
-
-        if user_input == "save":
-            try:
-                SaveHistoryCommand(calc).execute()
-                print(success(f"History saved to {calc.config.history_file}"))
-            except PersistenceError as error:
-                print(color_error(f"Save failed: {error}"))
-            continue
-
-
-        if user_input == "load":
-            try:
-                if not calc.config.history_file.exists():
-                    print(warning("No saved history file found."))
-                    continue
-
-                LoadHistoryCommand(calc).execute()
-                print(
-                    success(
-                        f"History loaded. "
-                        f"{len(calc.history)} calculation(s) available."
-                    )
-                )
-            except PersistenceError as error:
-                print(color_error(f"Load failed: {error}"))
-            continue
-
-
-        parts = user_input.split()
-
-        if len(parts) != 3:
-            print(color_error("Invalid input. Example: add 5 3"))
-            continue
-
-        operation_name, first, second = parts
-
-        try:
-            calc.set_operation(OperationFactory.create_operation(operation_name))
-            result = calc.perform_operation(first, second)
-            print(success(f"Result: {result}"))
-        except CalculatorError as error:
-            print(color_error(f"Error: {error}"))
-            
-
+        handler = COMMAND_HANDLERS.get(user_input)
+        if handler:
+            handler(calc)
+        else:
+            handle_operation(calc, user_input)
 
 def main():
     """Start the calculator application."""

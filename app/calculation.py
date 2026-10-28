@@ -24,8 +24,8 @@ class Calculation:
         )
 
     
-    # Convert calculation details to a dictionary for saving.
     def to_dict(self) -> Dict[str, Any]:
+        """Convert calculation details to a dictionary for saving."""
         return {
             "operation": self.operation,
             "operand1": str(self.operand1),
@@ -34,9 +34,9 @@ class Calculation:
             "timestamp": self.timestamp.isoformat()
         }
 
-    # Restore a calculation from saved dictionary data.
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Calculation":
+        """Restore a calculation from saved dictionary data."""
         return cls(
             operation=data["operation"],
             operand1=Decimal(data["operand1"]),

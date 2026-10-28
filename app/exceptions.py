@@ -2,21 +2,21 @@
 
 
 class CalculatorError(Exception):
-    #Base class for all calculator errors.
+    '''Base class for all calculator errors.'''
     pass
 
 class ValidationError(CalculatorError):
-    #Raised when user input is invalid.
+    """Raised when input validation fails."""    
     pass
 
 class OperationError(CalculatorError):
-    #Raised when an operation cannot be performed (e.g. divide by zero).
+    """Raised when a calculator operation fails."""
     pass
 
 class ConfigurationError(CalculatorError):
-    #Raised when configuration values are invalid.
+    '''Raised when configuration values are invalid'''
     pass
 
 class PersistenceError(OperationError):
-    #Raised when history cannot be saved or loaded.
+    """Raised when calculation history cannot be saved or loaded."""
     pass

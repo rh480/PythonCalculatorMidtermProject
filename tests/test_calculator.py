@@ -509,6 +509,17 @@ def test_logging_setup_error_is_raised(monkeypatch):
     with pytest.raises(OSError, match="Permission denied"):
         Calculator()
 
+def test_undo_redo_and_clear_are_logged(calc):
+    calc.set_operation(Addition())
+    calc.perform_operation("1", "1")
+    calc.undo()
+    calc.redo()
+    calc.clear_history()
+
+    text = calc.config.log_file.read_text(encoding="utf-8")
+    assert "Undo performed" in text
+    assert "Redo performed" in text
+    assert "History cleared" in text
 
 # Tests for registering and removing observers
 
@@ -599,6 +610,15 @@ def test_decimal_overflow_becomes_operation_error(calc):
 
 
 # Tests for factory-based REPL
+@pytest.mark.parametrize("interrupt", [EOFError(), KeyboardInterrupt()])
+def test_repl_exits_on_interrupt(monkeypatch, capsys, interrupt):
+    def fake_input(_):
+        raise interrupt
+
+    monkeypatch.setattr("builtins.input", fake_input)
+    calculator()
+
+    assert "Goodbye!" in capsys.readouterr().out
 
 def test_removed_alias_is_unknown(monkeypatch, capsys):
     output = run_calculator(
@@ -623,7 +643,6 @@ def test_repl_reports_overflow(monkeypatch, capsys):
 
     assert "Calculation failed" in output
 
-
 def test_dynamic_help_includes_registered_operation():
     from decimal import Decimal
     from app.operations import Operation, OperationFactory, operation_help, HELP_REGISTRY
@@ -645,3 +664,5 @@ def test_dynamic_help_includes_registered_operation():
         assert command_name in OperationFactory.get_supported_operations()
     finally:
         HELP_REGISTRY.pop(command_name, None)
+
+

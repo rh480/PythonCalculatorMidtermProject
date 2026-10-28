@@ -286,4 +286,5 @@ class OperationFactory:
 
     @classmethod
     def get_supported_operations(cls):
+        """Return a list of supported operation names."""
         return list(cls._operations.keys())
