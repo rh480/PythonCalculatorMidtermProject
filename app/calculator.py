@@ -13,6 +13,7 @@ from app.exceptions import CalculatorError, OperationError, ValidationError, Per
 from app.history import LoggingObserver, AutoSaveObserver
 from app.input_validators import InputValidator
 from app.logger import configure_logger
+from app.color_coded import success, error as color_error, warning, info, prompt
 
 
 from app.operations import OperationFactory
@@ -263,83 +264,85 @@ def calculator():
         ).strip().lower()
 
         if user_input == "exit":
-            print("Goodbye!")
+            print(info("Goodbye!"))
             break
 
         if user_input == "history":
             entries = calc.show_history()
 
             if not entries:
-                print("No calculation history yet.")
+                print(warning("No calculation history yet."))
             else:
                 for index, entry in enumerate(entries, start=1):
-                    print(f"{index}. {entry}")
+                    print(info(f"{index}. {entry}"))
 
             continue
 
         if user_input == "help":
-            print("Operations:")
+            print(info("Operations:"))
 
             for name, description in OperationFactory.available_operations().items():
-                print(f"  {name:<12} - {description}")
+                print(info(f"  {name:<12} - {description}"))
 
             print(
-                "Commands: history, clear, undo, redo, "
-                "save, load, help, exit"
+                info(
+                    "Commands: history, clear, undo, redo, "
+                    "save, load, help, exit"
+                )
             )
-            print("Example: add 5 3")
+            print(info("Example: add 5 3"))
             continue
 
         if user_input == "undo":
-            print(
-                "Last action undone."
-                if calc.undo()
-                else "Nothing to undo."
-            )
+            if calc.undo():
+                print(success("Last action undone."))
+            else:
+                print(warning("Nothing to undo."))
             continue
 
         if user_input == "redo":
-            print(
-                "Last action restored."
-                if calc.redo()
-                else "Nothing to redo."
-            )
+            if calc.redo():
+                print(success("Last action restored."))
+            else:
+                print(warning("Nothing to redo."))
             continue
 
         if user_input == "clear":
             calc.clear_history()
-            print("Calculation history cleared.")
+            print(success("Calculation history cleared."))
             continue
 
         if user_input == "save":
             try:
                 calc.save_history()
-                print(f"History saved to {calc.config.history_file}")
+                print(success(f"History saved to {calc.config.history_file}"))
             except PersistenceError as error:
-                print(f"Save failed: {error}")
+                print(color_error(f"Save failed: {error}"))
             continue
 
 
         if user_input == "load":
             try:
                 if not calc.config.history_file.exists():
-                    print("No saved history file found.")
+                    print(warning("No saved history file found."))
                     continue
 
                 calc.load_history()
                 print(
-                    f"History loaded. "
-                    f"{len(calc.history)} calculation(s) available."
+                    success(
+                        f"History loaded. "
+                        f"{len(calc.history)} calculation(s) available."
+                    )
                 )
             except PersistenceError as error:
-                print(f"Load failed: {error}")
+                print(color_error(f"Load failed: {error}"))
             continue
 
 
         parts = user_input.split()
 
         if len(parts) != 3:
-            print("Invalid input. Example: add 5 3")
+            print(color_error("Invalid input. Example: add 5 3"))
             continue
 
         operation_name, first, second = parts
@@ -347,9 +350,9 @@ def calculator():
         try:
             calc.set_operation(OperationFactory.create_operation(operation_name))
             result = calc.perform_operation(first, second)
-            print(f"Result: {result}")
+            print(success(f"Result: {result}"))
         except CalculatorError as error:
-            print(f"Error: {error}")
+            print(color_error(f"Error: {error}"))
             
 
 
