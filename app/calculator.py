@@ -9,10 +9,11 @@ import pandas as pd
 from app.calculation import Calculation
 from app.calculator_config import CalculatorConfig
 from app.calculator_memento import CalculatorMemento
-from app.exceptions import OperationError, ValidationError, PersistenceError
+from app.exceptions import CalculatorError, OperationError, ValidationError, PersistenceError
 from app.history import LoggingObserver, AutoSaveObserver
 from app.input_validators import InputValidator
 from app.logger import configure_logger
+
 
 from app.operations import (
     OperationError,
@@ -33,19 +34,13 @@ class Calculator:
     """Manage calculator operations and calculation history."""
 
     def __init__(self, config=None):
+        """Set up configuration, logging, an empty history and saved history."""
         self.config = config or CalculatorConfig()
-        self.config.validate()
-        """Initialize available operations and an empty history."""
+
         self.history = []
         self.undo_stack = []
         self.redo_stack = []
         self.operation_strategy = None
-
-        self.config = CalculatorConfig()
-        self.observers = [
-            LoggingObserver(),
-            AutoSaveObserver(self),
-            ]
 
         # Map commands to their operation classes.
         self.operations = {
@@ -62,24 +57,41 @@ class Calculator:
             "absolute_difference": AbsoluteDifference,
         }
 
+        self.observers = []
+        self.register_observer(LoggingObserver())
+        self.register_observer(AutoSaveObserver(self))
+
         # Configure logging before registering observers.
         configure_logger(
             self.config.log_file,
             self.config.default_encoding,
-)
+        )
 
         self.config.history_dir.mkdir(parents=True, exist_ok=True)
-
-        self.observers = [
-            LoggingObserver(),
-            AutoSaveObserver(self),
-        ]
 
         # Restore previously saved history when available.
         try:
             self.load_history()
         except PersistenceError as error:
             logging.warning("Could not load saved history: %s", error)
+    
+    def register_observer(self, observer):
+        """Add an observer that is told about every new calculation."""
+        self.observers.append(observer)
+
+    def notify_observers(self, calculation):
+        """Tell every observer about a calculation.
+
+        A failing observer (for example a save error) is logged but cannot
+        stop the other observers or lose the calculation result.
+        """
+        for observer in self.observers:
+            try:
+                observer.update(calculation)
+            except CalculatorError as error:
+                logging.error(
+                    "Observer %s failed: %s", type(observer).__name__, error
+                )
 
     def save_history(self, file_path=None):
         """Save calculation history to a CSV file."""
@@ -309,6 +321,24 @@ def calculator():
             except PersistenceError as error:
                 print(f"Save failed: {error}")
             continue
+
+
+        if user_input == "load":
+            try:
+                if not calc.config.history_file.exists():
+                    print("No saved history file found.")
+                    continue
+
+                calc.load_history()
+                print(
+                    f"History loaded. "
+                    f"{len(calc.history)} calculation(s) available."
+                )
+            except PersistenceError as error:
+                print(f"Load failed: {error}")
+            continue
+
+
         parts = user_input.split()
 
         if len(parts) != 3:
