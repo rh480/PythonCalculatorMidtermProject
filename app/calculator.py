@@ -51,12 +51,6 @@ class Calculator:
             logging.warning("Could not load saved history: %s", error)
 
         self.config.history_dir.mkdir(parents=True, exist_ok=True)
-
-        # Restore previously saved history when available.
-        try:
-            self.load_history()
-        except PersistenceError as error:
-            logging.warning("Could not load saved history: %s", error)
     
     def register_observer(self, observer):
         """Add an observer that is told about every new calculation."""
