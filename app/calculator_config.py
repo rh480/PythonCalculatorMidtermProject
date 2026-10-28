@@ -134,3 +134,4 @@ class CalculatorConfig:
             raise ConfigurationError(
                 f"Unknown encoding: {self.default_encoding}"
             ) from None
+        

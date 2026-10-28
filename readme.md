@@ -19,12 +19,19 @@ The project demonstrates object-oriented programming, software design patterns, 
 - **Automated testing:** Use pytest to verify application behavior and measure test coverage.
 - **Continuous integration:** Run automated checks through GitHub Actions.
 
+## Additional Features
+
+- **Dynamic help:** Registers arithmetic operation classes using the `operation_help` decorator and automatically generates the operations help menu.
+- **Color-coded output:** Uses Colorama to distinguish successful actions, errors, warnings, and informational messages in the CLI.
+- **Command Design Pattern:** Encapsulates calculator management actions in dedicated command classes, separating command execution from the underlying calculator methods.
+
 ## Technologies
 
 - Python
-- pytest and pytest-cov
+- Colorama
 - pandas
 - python-dotenv
+- pytest and pytest-cov
 - Git and GitHub
 - GitHub Actions
 
@@ -33,20 +40,41 @@ The project demonstrates object-oriented programming, software design patterns, 
 ```text
 PythonCalculatorMidtermProject/
 ├── .github/
-│   └── workflows/       # GitHub Actions workflows
+│   └── workflows/               # GitHub Actions workflows
 ├── app/
-│   ├── calculator.py    # Calculator logic and CLI
-│   ├── calculator_config.py
-│   ├── history.py       # Calculation history and persistence
-│   ├── operations.py    # Arithmetic operations
-│   └── logger.py        # Logging utilities
-├── tests/               # Automated tests
-├── .env                 # Local configuration
+│   ├── __init__.py               # Application package
+│   ├── calculation.py            # Calculation model
+│   ├── calculator.py              # Calculator logic and interactive CLI
+│   ├── calculator_config.py       # Application configuration
+│   ├── calculator_memento.py      # State snapshots for undo and redo
+│   ├── color_coded.py             # Colorama output formatting helpers
+│   ├── commands.py                # Command Design Pattern classes
+│   ├── exceptions.py              # Custom application exceptions
+│   ├── history.py                 # History observers and related behavior
+│   ├── input_validators.py        # Input validation
+│   ├── logger.py                  # Logging configuration and utilities
+│   └── operations.py              # Arithmetic operations and dynamic help
+├── tests/
+│   ├── __init__.py                # Test package
+│   ├── conftest.py                # Shared pytest fixtures
+│   ├── test_calculation.py        # Calculation model tests
+│   ├── test_calculator.py         # Calculator and CLI tests
+│   ├── test_color.py              # Color formatting tests
+│   ├── test_commands.py           # Command pattern tests
+│   ├── test_config.py             # Configuration tests
+│   ├── test_exceptions.py         # Exception tests
+│   ├── test_history.py            # History tests
+│   ├── test_logger.py             # Logging tests
+│   ├── test_memento.py            # Memento pattern tests
+│   ├── test_operations.py         # Arithmetic operation tests
+│   └── test_validators.py         # Input validation tests
+├── .env                           # Local environment configuration
 ├── .gitignore
-├── main.py              # Application entry point
-├── readme.md
-└── requirements.txt
+├── main.py                        # Application entry point
+├── readme.md                      # Project documentation
+└── requirements.txt               # Project dependencies
 ```
+
 
 ## Prerequisites
 
@@ -146,29 +174,39 @@ Division and other operations are subject to the application's input validation 
 
 ## CLI Commands
 
-The interactive interface supports commands for calculator operations and, where implemented, the following management actions:
+Enter commands in the interactive calculator to perform calculations or manage calculation history.
 
 | Command | Purpose |
 |---|---|
-| `help` | Display usage information |
+| `help` | Display registered arithmetic operations and available commands |
 | `history` | View recorded calculations |
 | `clear` | Clear calculation history |
 | `undo` | Undo the most recent supported action |
-| `redo` | Redo an undone action |
-| `save` | Save calculation history |
-| `load` | Load saved calculation history |
+| `redo` | Restore an undone action |
+| `save` | Save calculation history to persistent storage |
+| `load` | Load previously saved calculation history |
 | `exit` | Exit the application |
 
-Use the application's built-in help to confirm the exact command syntax and arguments.
+Arithmetic operations use the format `operation number1 number2`.
+
+Example:
+
+```text
+add 5 3
+Result: 8
+```
+
+Use `help` within the application to view the registered operations and their descriptions.
 
 ## Design Patterns
 
-The project applies design patterns to organize responsibilities and improve maintainability.
+The project uses design patterns to organize application responsibilities and improve maintainability.
 
-- **Factory Pattern:** Provides a structured way to create or select supported arithmetic operations.
-- **Memento Pattern:** Supports undo and redo by preserving and restoring calculator state.
-- **Observer Pattern:** Allows components such as logging and automatic history saving to respond to calculator events.
-- **Command Pattern or other optional enhancement:** Document this only if the corresponding implementation is included in the current codebase.
+- **Factory Pattern:** `OperationFactory` creates or selects supported arithmetic operations based on user input.
+- **Memento Pattern:** Preserves calculator state to support undo and redo functionality.
+- **Observer Pattern:** Uses observers such as `LoggingObserver` and `AutoSaveObserver` to respond to calculator events.
+- **Command Pattern:** Encapsulates management actions in command classes, separating the request to perform an action from the calculator methods that carry it out.
+- **Decorator-based registration:** Uses the `operation_help` decorator to register arithmetic operation classes dynamically, allowing the help menu to discover registered operations.
 
 ## Calculation History and Logging
 
@@ -198,9 +236,20 @@ To generate an HTML coverage report:
 python -m pytest --cov=app --cov-report=html
 ```
 
-Open `htmlcov/index.html` in a browser to inspect line-by-line coverage.
+The test suite includes coverage for:
 
-Tests should cover arithmetic operations, input validation, exception handling, undo and redo, history persistence, configuration, and observer behavior.
+- Arithmetic operations and calculation behavior
+- CLI commands and user interaction
+- Dynamic operation registration and help
+- Color formatting
+- Command pattern behavior
+- Configuration and input validation
+- Exceptions and error handling
+- Calculation history, persistence, and observers
+- Memento-based undo and redo
+- Logging utilities
+
+Run the coverage command to view the current test coverage percentage and identify lines that are not covered by tests.
 
 ## Continuous Integration
 
@@ -210,14 +259,4 @@ See the **Actions** tab in the repository for workflow runs and results.
 
 ## Future Improvements
 
-Potential enhancements include additional edge-case tests, improved CLI usability, more detailed logging, and expanded documentation for individual modules.
-
-## Author
-
-**Rashmi Hazarika**
-
-GitHub: [rh480](https://github.com/rh480)
-
-## License
-
-No license has been specified. All rights are reserved by default unless a license is added to the repository.
+Potential enhancements include improving the calculator’s overall interface by allowing users to customize output colors, text styles, layout, and display preferences. The CLI layout could be reorganized to make menus, commands, calculation results, and error messages easier to read and navigate. Additional improvements may include adding clearer prompts, expanding edge-case tests for arithmetic operations and history persistence, enhancing error handling, improving logging, and expanding documentation for individual modules and design patterns.

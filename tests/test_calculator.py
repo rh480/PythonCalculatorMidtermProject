@@ -664,5 +664,3 @@ def test_dynamic_help_includes_registered_operation():
         assert command_name in OperationFactory.get_supported_operations()
     finally:
         HELP_REGISTRY.pop(command_name, None)
-
-

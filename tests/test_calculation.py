@@ -39,3 +39,4 @@ def test_calculation_from_dict():
     assert calculation.operand2 == 3.0
     assert calculation.result == 8.0
     assert calculation.timestamp == datetime(2026, 1, 1, 12, 0, 0)
+    

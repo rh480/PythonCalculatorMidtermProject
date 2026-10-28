@@ -36,3 +36,4 @@ class InputValidator:
             return number
         except InvalidOperation as e:
             raise ValidationError(f"Invalid number format: {value}") from e
+        

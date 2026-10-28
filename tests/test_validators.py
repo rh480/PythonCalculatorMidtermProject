@@ -68,3 +68,4 @@ def test_validate_number_exceeds_max(value):
     """Values beyond the configured maximum (including infinity) are rejected."""
     with pytest.raises(ValidationError, match="Value exceeds maximum allowed"):
         InputValidator.validate_number(value, config)
+        

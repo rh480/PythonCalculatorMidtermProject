@@ -17,3 +17,4 @@ def isolated_environment(tmp_path, monkeypatch):
     for name in ENV_VARS:
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("CALCULATOR_BASE_DIR", str(tmp_path))
+    

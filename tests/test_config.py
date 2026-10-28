@@ -136,3 +136,4 @@ def test_validate_detects_later_changes():
 
 def test_get_project_root():
     assert (get_project_root() / "app").is_dir()
+    

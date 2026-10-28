@@ -44,4 +44,3 @@ class Calculation:
             result=Decimal(data["result"]),
             timestamp=datetime.fromisoformat(data["timestamp"])
         )
-

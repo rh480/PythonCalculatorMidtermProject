@@ -62,3 +62,4 @@ def test_to_dict_and_from_dict_round_trip(history):
     assert restored.get_history() == history
     assert restored.timestamp == memento.timestamp
     assert isinstance(restored.timestamp, datetime)
+    

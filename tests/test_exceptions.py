@@ -46,3 +46,4 @@ def test_persistence_error_is_an_operation_error():
 def test_sibling_errors_are_not_operation_errors(error_class):
     """ValidationError and ConfigurationError are separate from OperationError."""
     assert not issubclass(error_class, OperationError)
+    
