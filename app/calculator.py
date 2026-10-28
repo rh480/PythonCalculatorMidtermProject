@@ -12,6 +12,8 @@ from app.calculator_memento import CalculatorMemento
 from app.exceptions import OperationError, ValidationError, PersistenceError
 from app.history import LoggingObserver, AutoSaveObserver
 from app.input_validators import InputValidator
+from app.logger import configure_logger
+
 from app.operations import (
     OperationError,
     Addition,
@@ -61,14 +63,10 @@ class Calculator:
         }
 
         # Configure logging before registering observers.
-        self.config.log_dir.mkdir(parents=True, exist_ok=True)
-        logging.basicConfig(
-            filename=str(self.config.log_file),
-            level=logging.INFO,
-            format="%(asctime)s - %(levelname)s - %(message)s",
-            encoding=self.config.default_encoding,
-            force=True,
-        )
+        configure_logger(
+            self.config.log_file,
+            self.config.default_encoding,
+)
 
         self.config.history_dir.mkdir(parents=True, exist_ok=True)
 
