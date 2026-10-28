@@ -278,7 +278,11 @@ def calculator():
             continue
 
         if user_input == "help":
-            print("Operations: " + ", ".join(OperationFactory.available_operations()))
+            print("Operations:")
+
+            for name, description in OperationFactory.available_operations().items():
+                print(f"  {name:<12} - {description}")
+
             print(
                 "Commands: history, clear, undo, redo, "
                 "save, load, help, exit"

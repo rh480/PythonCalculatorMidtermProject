@@ -7,6 +7,21 @@ from typing import Dict, Type
 from app.exceptions import OperationError
 
 
+
+# Stores operation classes that are registered for dynamic help.
+HELP_REGISTRY = {}
+
+
+def operation_help(command_name: str):
+    """Register an operation class for the dynamic help menu."""
+
+    def decorator(operation_class):
+        operation_class.command_name = command_name
+        HELP_REGISTRY[command_name] = operation_class
+        return operation_class
+
+    return decorator
+
 ########################
 # Operation Classes    #
 ########################
@@ -55,6 +70,7 @@ class Operation(ABC):
         return self.__class__.__name__
 
 
+@operation_help("add")
 class Addition(Operation):
     """Add two numbers."""
 
@@ -65,7 +81,7 @@ class Addition(Operation):
         self.validate_operands(a, b)
         return a + b
 
-
+@operation_help("subtract")
 class Subtraction(Operation):
     """Subtract the second number from the first."""
 
@@ -76,7 +92,7 @@ class Subtraction(Operation):
         self.validate_operands(a, b)
         return a - b
 
-
+@operation_help("multiply")
 class Multiplication(Operation):
     """Multiply two numbers."""
 
@@ -87,7 +103,7 @@ class Multiplication(Operation):
         self.validate_operands(a, b)
         return a * b
 
-
+@operation_help("divide")
 class Division(Operation):
     """Divide the first number by the second."""
 
@@ -104,7 +120,7 @@ class Division(Operation):
         self.validate_operands(a, b)
         return a / b
 
-
+@operation_help("power")
 class Power(Operation):
     """Raise the first number to the power of the second."""
 
@@ -127,7 +143,7 @@ class Power(Operation):
         self.validate_operands(a, b)
         return a ** b
 
-
+@operation_help("root")
 class Root(Operation):
     """Calculate the b-th root of the first number."""
 
@@ -160,7 +176,7 @@ class Root(Operation):
 
         return a ** (Decimal(1) / b)
 
-
+@operation_help("modulus")
 class Modulus(Operation):
     """Calculate the remainder after division."""
 
@@ -177,7 +193,7 @@ class Modulus(Operation):
         self.validate_operands(a, b)
         return a % b
 
-
+@operation_help("int_divide")
 class IntegerDivision(Operation):
     """Divide two numbers and discard the fractional part."""
 
@@ -194,7 +210,7 @@ class IntegerDivision(Operation):
         self.validate_operands(a, b)
         return a // b
 
-
+@operation_help("percent")
 class Percentage(Operation):
     """Calculate what percentage the first number is of the second."""
 
@@ -212,7 +228,7 @@ class Percentage(Operation):
         self.validate_operands(a, b)
         return (a / b) * 100
 
-
+@operation_help("abs_diff")
 class AbsoluteDifference(Operation):
     """Calculate the absolute difference between two numbers."""
 
@@ -237,18 +253,7 @@ class OperationFactory:
     """
 
     # Match each command name to its operation class.
-    _operations: Dict[str, Type[Operation]] = {
-        "add": Addition,
-        "subtract": Subtraction,
-        "multiply": Multiplication,
-        "divide": Division,
-        "power": Power,
-        "root": Root,
-        "modulus": Modulus,
-        "int_divide": IntegerDivision,
-        "percent": Percentage,
-        "abs_diff": AbsoluteDifference,
-    }
+    _operations: Dict[str, Type[Operation]] = HELP_REGISTRY
 
     @classmethod
     def create_operation(cls, name: str) -> Operation:
@@ -273,7 +278,7 @@ class OperationFactory:
 
     @classmethod
     def available_operations(cls) -> Dict[str, str]:
-        """Return the command names and descriptions of available operations."""
+        """Return registered operation names and their descriptions."""
         return {
             name: operation.description
             for name, operation in cls._operations.items()

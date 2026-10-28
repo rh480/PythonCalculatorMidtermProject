@@ -622,3 +622,26 @@ def test_repl_reports_overflow(monkeypatch, capsys):
     )
 
     assert "Calculation failed" in output
+
+
+def test_dynamic_help_includes_registered_operation():
+    from decimal import Decimal
+    from app.operations import Operation, OperationFactory, operation_help, HELP_REGISTRY
+
+    command_name = "test_dynamic_help"
+
+    @operation_help(command_name)
+    class TestDynamicOperation(Operation):
+        description = "Temporary operation for testing dynamic help"
+
+        def execute(self, a: Decimal, b: Decimal) -> Decimal:
+            return a + b
+
+    try:
+        operations = OperationFactory.available_operations()
+
+        assert command_name in operations
+        assert operations[command_name] == "Temporary operation for testing dynamic help"
+        assert command_name in OperationFactory.get_supported_operations()
+    finally:
+        HELP_REGISTRY.pop(command_name, None)
