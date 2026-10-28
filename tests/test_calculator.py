@@ -38,7 +38,6 @@ def calc():
 def test_calculator_initialization(calc):
     assert calc.history == []
     assert calc.operation_strategy is None
-    assert len(calc.operations) == 11
 
 
 # Test Setting Operations
@@ -141,7 +140,7 @@ def run_calculator(monkeypatch, capsys, inputs):
         ("modulus 10 3", "Result: 1"),
         ("int_divide 7 2", "Result: 3"),
         ("percent 1 8", "Result: 12.5"),
-        ("absolute_difference 4 10", "Result: 6"),
+        ("abs_diff 4 10", "Result: 6")
     ],
 )
 def test_calculator_commands(monkeypatch, capsys, command, expected):
@@ -173,7 +172,7 @@ def test_non_numeric_input(monkeypatch, capsys):
         monkeypatch, capsys, ["add two three", "exit"]
     )
 
-    assert "Invalid numbers" in output
+    assert "Invalid number" in output
 
 
 def test_division_by_zero(monkeypatch, capsys):
@@ -212,7 +211,7 @@ def test_empty_history_command(monkeypatch, capsys):
 
 def test_undo_removes_last_calculation():
     calc = Calculator()
-    calc.set_operation(calc.operations["add"]())
+    calc.set_operation(Addition())
 
     calc.perform_operation(Decimal("2"), Decimal("3"))
     calc.undo()
@@ -222,7 +221,7 @@ def test_undo_removes_last_calculation():
 
 def test_redo_restores_undone_calculation():
     calc = Calculator()
-    calc.set_operation(calc.operations["add"]())
+    calc.set_operation(Addition())
 
     calc.perform_operation(Decimal("2"), Decimal("3"))
     calc.undo()
@@ -246,7 +245,7 @@ def test_redo_returns_false_when_nothing_was_undone():
 
 def test_undo_restores_history_after_clear():
     calc = Calculator()
-    calc.set_operation(calc.operations["add"]())
+    calc.set_operation(Addition())
 
     calc.perform_operation(Decimal("2"), Decimal("3"))
     calc.clear_history()
@@ -576,3 +575,50 @@ def test_validator_keeps_whole_numbers_readable(calc):
     calc.perform_operation("10", "0")
 
     assert str(calc.history[0].operand1) == "10"
+
+
+# Tests for history limit and overflow
+
+def test_history_is_trimmed_to_max_size(tmp_path):
+    calc = Calculator(CalculatorConfig(base_dir=tmp_path, max_history_size=2))
+    calc.set_operation(Addition())
+
+    for number in ("1", "2", "3"):
+        calc.perform_operation(number, "0")
+
+    assert [c.operand1 for c in calc.history] == [Decimal("2"), Decimal("3")]
+
+
+def test_decimal_overflow_becomes_operation_error(calc):
+    calc.set_operation(Power())
+
+    with pytest.raises(OperationError, match="Calculation failed"):
+        calc.perform_operation("999999", "999999")
+
+    assert calc.history == []
+
+
+# Tests for factory-based REPL
+
+def test_removed_alias_is_unknown(monkeypatch, capsys):
+    output = run_calculator(
+        monkeypatch, capsys, ["absolute_difference 4 10", "exit"]
+    )
+
+    assert "Unknown operation" in output
+
+
+def test_repl_reports_oversized_input(monkeypatch, capsys):
+    output = run_calculator(
+        monkeypatch, capsys, ["add 1e1000 1", "exit"]
+    )
+
+    assert "Value exceeds maximum allowed" in output
+
+
+def test_repl_reports_overflow(monkeypatch, capsys):
+    output = run_calculator(
+        monkeypatch, capsys, ["power 999999 999999", "exit"]
+    )
+
+    assert "Calculation failed" in output

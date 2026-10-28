@@ -278,3 +278,7 @@ class OperationFactory:
             name: operation.description
             for name, operation in cls._operations.items()
         }
+
+    @classmethod
+    def get_supported_operations(cls):
+        return list(cls._operations.keys())

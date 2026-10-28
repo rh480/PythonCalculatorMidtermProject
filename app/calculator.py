@@ -15,19 +15,7 @@ from app.input_validators import InputValidator
 from app.logger import configure_logger
 
 
-from app.operations import (
-    OperationError,
-    Addition,
-    Subtraction,
-    Multiplication,
-    Division,
-    Power,
-    Root,
-    Modulus,
-    IntegerDivision,
-    Percentage,
-    AbsoluteDifference,
-)
+from app.operations import OperationFactory
 
 
 class Calculator:
@@ -42,21 +30,7 @@ class Calculator:
         self.redo_stack = []
         self.operation_strategy = None
 
-        # Map commands to their operation classes.
-        self.operations = {
-            "add": Addition,
-            "subtract": Subtraction,
-            "multiply": Multiplication,
-            "divide": Division,
-            "power": Power,
-            "root": Root,
-            "modulus": Modulus,
-            "int_divide": IntegerDivision,
-            "percent": Percentage,
-            "abs_diff": AbsoluteDifference,
-            "absolute_difference": AbsoluteDifference,
-        }
-
+        self.operations = OperationFactory
         # Configure logging before registering observers.
         configure_logger(
             self.config.log_file,
@@ -225,7 +199,10 @@ class Calculator:
         try:
             a = InputValidator.validate_number(a, self.config)
             b = InputValidator.validate_number(b, self.config)
-            result = self.operation_strategy.execute(a, b)
+            try:
+                result = self.operation_strategy.execute(a, b)
+            except ArithmeticError as error:  # Decimal overflow and similar
+                raise OperationError(f"Calculation failed: {error}") from error
         except CalculatorError as error:
             logging.warning("Calculation rejected: %s", error)
             raise
@@ -246,6 +223,9 @@ class Calculator:
         self.redo_stack.clear()
 
         self.history.append(calculation)
+        if len(self.history) > self.config.max_history_size:
+            self.history.pop(0)
+
         self.notify_observers(calculation)
         return result
 
@@ -304,7 +284,7 @@ def calculator():
             continue
 
         if user_input == "help":
-            print("Operations: " + ", ".join(calc.operations))
+            print("Operations: " + ", ".join(OperationFactory.available_operations()))
             print(
                 "Commands: history, clear, undo, redo, "
                 "save, load, help, exit"
@@ -366,30 +346,13 @@ def calculator():
 
         operation_name, first, second = parts
 
-        if operation_name not in calc.operations:
-            print(
-                f"Unknown operation: {operation_name}. "
-                "Example: add 5 3"
-            )
-            continue
-
         try:
-            a = Decimal(first)
-            b = Decimal(second)
-
-            operation_class = calc.operations[operation_name]
-            calc.set_operation(operation_class())
-
-            result = calc.perform_operation(a, b)
+            calc.set_operation(OperationFactory.create_operation(operation_name))
+            result = calc.perform_operation(first, second)
             print(f"Result: {result}")
-
-        except (InvalidOperation, ValueError):
-            print(
-                "Invalid numbers. Please enter valid numbers. "
-                "Example: add 5 3"
-            )
-        except OperationError as error:
+        except CalculatorError as error:
             print(f"Error: {error}")
+            
 
 
 def main():
