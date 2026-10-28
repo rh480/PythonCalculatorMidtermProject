@@ -222,8 +222,13 @@ class Calculator:
         """Execute the selected operation and record the calculation."""
         if self.operation_strategy is None:
             raise OperationError("No operation set.")
-
-        result = self.operation_strategy.execute(a, b)
+        try:
+            a = InputValidator.validate_number(a, self.config)
+            b = InputValidator.validate_number(b, self.config)
+            result = self.operation_strategy.execute(a, b)
+        except CalculatorError as error:
+            logging.warning("Calculation rejected: %s", error)
+            raise
 
         calculation = Calculation(
             operation=str(self.operation_strategy),

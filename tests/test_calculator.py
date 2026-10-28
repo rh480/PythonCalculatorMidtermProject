@@ -7,7 +7,7 @@ import pytest
 import pandas as pd
 
 from app.calculator_config import CalculatorConfig
-from app.exceptions import PersistenceError
+from app.exceptions import PersistenceError, ValidationError
 from app.history import LoggingObserver
 
 from app.calculator import Calculator, calculator
@@ -542,3 +542,37 @@ def test_removed_observer_is_not_notified(calc):
     calc.perform_operation(Decimal("1"), Decimal("1"))
 
     assert seen == []
+
+
+# Tests for input validation
+
+@pytest.mark.parametrize("a, b", [("abc", "1"), ("1", "nan"), ("1e1000", "1")])
+def test_invalid_input_is_rejected_and_not_recorded(calc, a, b):
+    calc.set_operation(Addition())
+
+    with pytest.raises(ValidationError):
+        calc.perform_operation(a, b)
+
+    assert calc.history == []
+
+
+def test_rejected_input_is_logged(calc):
+    calc.set_operation(Addition())
+
+    with pytest.raises(ValidationError):
+        calc.perform_operation("abc", "1")
+
+    assert "Calculation rejected" in _read(calc.config.log_file)
+
+
+def test_numeric_strings_are_accepted(calc):
+    calc.set_operation(Addition())
+
+    assert calc.perform_operation("10", " 5 ") == Decimal("15")
+
+
+def test_validator_keeps_whole_numbers_readable(calc):
+    calc.set_operation(Addition())
+    calc.perform_operation("10", "0")
+
+    assert str(calc.history[0].operand1) == "10"
