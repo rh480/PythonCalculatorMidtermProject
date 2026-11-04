@@ -42,13 +42,31 @@ def test_validate_number_valid(value, expected):
         ("   ", "Invalid number format: "),
         (None, "Invalid number format: None"),
         ([], "Invalid number format: "),
-        ("nan", "Invalid number format: nan"),
     ],
 )
 #invalid inputs raise ValidationError with appropriate message
 def test_validate_number_invalid_format(value, message):
     """Input that is not a number raises ValidationError."""
     with pytest.raises(ValidationError, match=message):
+        InputValidator.validate_number(value, config)
+
+#parametrize test cases for non-finite numbers
+@pytest.mark.parametrize(
+    "value",
+    [
+        "nan",
+        "inf",
+        "-inf",
+    ],
+)
+
+#non-finite numbers are rejected 
+def test_validate_number_rejects_non_finite(value):
+    """Non-finite numbers are rejected."""
+    with pytest.raises(
+        ValidationError,
+        match="Input must be a finite number",
+    ):
         InputValidator.validate_number(value, config)
 
 #parametrize test cases for inputs exceeding max_input_value
@@ -59,13 +77,13 @@ def test_validate_number_invalid_format(value, message):
         "1000001",
         -Decimal("1000001"),
         "-1000001",
-        "inf",
-        "-inf",
     ],
 )
 #values beyond the configured maximum (including infinity) are rejected
 def test_validate_number_exceeds_max(value):
-    """Values beyond the configured maximum (including infinity) are rejected."""
-    with pytest.raises(ValidationError, match="Value exceeds maximum allowed"):
+    """Values beyond the configured maximum are rejected."""
+    with pytest.raises(
+        ValidationError,
+        match="Value exceeds maximum allowed",
+    ):
         InputValidator.validate_number(value, config)
-        
