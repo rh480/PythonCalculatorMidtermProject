@@ -1,6 +1,7 @@
 
 """Calculator core (history, undo/redo, persistence, observers) and its command-line interface."""
 
+from decimal import Decimal, InvalidOperation
 import logging
 
 import pandas as pd
@@ -179,8 +180,10 @@ class Calculator:
             b = InputValidator.validate_number(b, self.config)
             try:
                 result = self.operation_strategy.execute(a, b)
-            except ArithmeticError as error:  # Decimal overflow and similar
-                raise OperationError(f"Calculation failed: {error}") from error
+            except (ArithmeticError, InvalidOperation, ValueError) as error:  # Decimal overflow and similar
+                raise OperationError(
+                    f"Calculation failed: {error}"
+                ) from error
         except CalculatorError as error:
             logging.warning("Calculation rejected: %s", error)
             raise
@@ -303,20 +306,28 @@ def handle_load(calc):
         print(color_error(f"Load failed: {error}"))
 
 
-def handle_operation(calc, user_input):
-    """Parse '<operation> <a> <b>', run it and print the result."""
-    parts = user_input.split()
-    if len(parts) != 3:
-        print(color_error("Invalid input. Example: add 5 3"))
-        return
 
-    operation_name, first, second = parts
+def handle_operation(calc, operation_name):
+    """Prompt for two numbers, perform the operation and print the result."""    
     try:
-        calc.set_operation(OperationFactory.create_operation(operation_name))
+        calc.set_operation(
+            OperationFactory.create_operation(operation_name)
+        )
+
+        print(f"\nSelected operation: {operation_name}")
+
+        first = input("Enter first number: ").strip()
+        second = input("Enter second number: ").strip()
+
         result = calc.perform_operation(first, second)
-        print(success(f"Result: {result}"))
+
+        print(success(f"\nResult: {result}"))
+
+    except (EOFError, KeyboardInterrupt):
+        print(warning("\nCalculation cancelled."))
     except CalculatorError as error:
         print(color_error(f"Error: {error}"))
+
 
 
 # Each REPL command word maps to the function that handles it.
@@ -339,7 +350,7 @@ def calculator():
     while True:
         try:
             user_input = input(
-                prompt("Enter an operation and two numbers: ")
+                prompt("Enter an operation or command: ")
             ).strip().lower()
         except (EOFError, KeyboardInterrupt):
             print(info("\nGoodbye!"))
