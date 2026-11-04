@@ -129,23 +129,23 @@ def run_calculator(monkeypatch, capsys, inputs):
 
 
 @pytest.mark.parametrize(
-    "command, expected",
+    "inputs, expected",
     [
-        ("add 2 3", "Result: 5"),
-        ("subtract 2 3", "Result: -1"),
-        ("multiply 2 3", "Result: 6"),
-        ("divide 6 2", "Result: 3"),
-        ("power 2 3", "Result: 8"),
-        ("root 27 3", "Result: 3"),
-        ("modulus 10 3", "Result: 1"),
-        ("int_divide 7 2", "Result: 3"),
-        ("percent 1 8", "Result: 12.5"),
-        ("abs_diff 4 10", "Result: 6")
+        (["add", "2", "3", "exit"], "Result: 5"),
+        (["subtract", "2", "3", "exit"], "Result: -1"),
+        (["multiply", "2", "3", "exit"], "Result: 6"),
+        (["divide", "6", "2", "exit"], "Result: 3"),
+        (["power", "2", "3", "exit"], "Result: 8"),
+        (["root", "27", "3", "exit"], "Result: 3"),
+        (["modulus", "10", "3", "exit"], "Result: 1"),
+        (["int_divide", "7", "2", "exit"], "Result: 3"),
+        (["percent", "1", "8", "exit"], "Result: 12.5"),
+        (["abs_diff", "4", "10", "exit"], "Result: 6")
     ],
 )
-def test_calculator_commands(monkeypatch, capsys, command, expected):
+def test_calculator_commands(monkeypatch, capsys, inputs, expected):
     output = run_calculator(
-        monkeypatch, capsys, [command, "exit"]
+        monkeypatch, capsys, inputs
     )
 
     assert expected in output
@@ -153,7 +153,7 @@ def test_calculator_commands(monkeypatch, capsys, command, expected):
 
 def test_invalid_operation(monkeypatch, capsys):
     output = run_calculator(
-        monkeypatch, capsys, ["unknown 2 3", "exit"]
+        monkeypatch, capsys, ["unknown", "exit"]
     )
 
     assert "Unknown operation" in output
@@ -161,15 +161,15 @@ def test_invalid_operation(monkeypatch, capsys):
 
 def test_invalid_input(monkeypatch, capsys):
     output = run_calculator(
-        monkeypatch, capsys, ["add 2", "exit"]
+        monkeypatch, capsys, ["add", "two", "3", "exit"]
     )
 
-    assert "Invalid input" in output
+    assert "Invalid number" in output
 
 
 def test_non_numeric_input(monkeypatch, capsys):
     output = run_calculator(
-        monkeypatch, capsys, ["add two three", "exit"]
+        monkeypatch, capsys, ["add", "2", "three", "exit"]
     )
 
     assert "Invalid number" in output
@@ -177,7 +177,7 @@ def test_non_numeric_input(monkeypatch, capsys):
 
 def test_division_by_zero(monkeypatch, capsys):
     output = run_calculator(
-        monkeypatch, capsys, ["divide 5 0", "exit"]
+        monkeypatch, capsys, ["divide", "5", "0", "exit"]
     )
 
     assert "Error:" in output
@@ -194,7 +194,7 @@ def test_exit_command(monkeypatch, capsys):
 
 def test_history_command(monkeypatch, capsys):
     output = run_calculator(
-        monkeypatch, capsys, ["add 2 3", "history", "exit"]
+        monkeypatch, capsys, ["add", "2", "3", "history", "exit"]
     )
 
     assert "Result: 5" in output
@@ -357,7 +357,7 @@ def test_clear_command(monkeypatch, capsys):
     output = run_calculator(
         monkeypatch,
         capsys,
-        ["add 2 3", "clear", "history", "exit"],
+        ["add", "2", "3", "clear", "history", "exit"],
     )
 
     assert "Calculation history cleared." in output
@@ -366,7 +366,7 @@ def test_clear_command(monkeypatch, capsys):
 
 def test_undo_command(monkeypatch, capsys):
     output = run_calculator(
-        monkeypatch, capsys, ["add 2 3", "undo", "history", "exit"]
+        monkeypatch, capsys, ["add", "2", "3", "undo", "history", "exit"]
     )
 
     assert "Last action undone." in output
@@ -375,8 +375,7 @@ def test_undo_command(monkeypatch, capsys):
 
 def test_redo_command(monkeypatch, capsys):
     output = run_calculator(
-        monkeypatch, capsys,
-        ["add 2 3", "undo", "redo", "history", "exit"],
+        monkeypatch, capsys, ["add", "2", "3", "undo", "redo", "history", "exit"],
     )
 
     assert "Last action restored." in output
@@ -622,7 +621,7 @@ def test_repl_exits_on_interrupt(monkeypatch, capsys, interrupt):
 
 def test_removed_alias_is_unknown(monkeypatch, capsys):
     output = run_calculator(
-        monkeypatch, capsys, ["absolute_difference 4 10", "exit"]
+        monkeypatch, capsys, ["absolute_difference", "4", "10", "exit"]
     )
 
     assert "Unknown operation" in output
@@ -630,7 +629,7 @@ def test_removed_alias_is_unknown(monkeypatch, capsys):
 
 def test_repl_reports_oversized_input(monkeypatch, capsys):
     output = run_calculator(
-        monkeypatch, capsys, ["add 1e1000 1", "exit"]
+        monkeypatch, capsys, ["add", "1e1000", "1", "exit"]
     )
 
     assert "Value exceeds maximum allowed" in output
@@ -638,7 +637,7 @@ def test_repl_reports_oversized_input(monkeypatch, capsys):
 
 def test_repl_reports_overflow(monkeypatch, capsys):
     output = run_calculator(
-        monkeypatch, capsys, ["power 999999 999999", "exit"]
+        monkeypatch, capsys, ["power", "999999", "999999", "exit"]
     )
 
     assert "Calculation failed" in output

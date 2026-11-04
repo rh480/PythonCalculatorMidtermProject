@@ -27,13 +27,24 @@ class InputValidator:
         """
         try:
             if isinstance(value, str):
-                value = value.strip()  # allow "  456  "
-            number = Decimal(str(value))  # str() first so 123.456 stays exactly 123.456
+                value = value.strip()
+
+            number = Decimal(str(value))
+
+            if not number.is_finite():
+                raise ValidationError(
+                    "Input must be a finite number."
+                )
+
             if abs(number) > config.max_input_value:
                 raise ValidationError(
-                    f"Value exceeds maximum allowed: {config.max_input_value}"
+                    f"Value exceeds maximum allowed: "
+                    f"{config.max_input_value}"
                 )
+
             return number
-        except InvalidOperation as e:
-            raise ValidationError(f"Invalid number format: {value}") from e
-        
+
+        except (InvalidOperation, ValueError, TypeError) as error:
+            raise ValidationError(
+                f"Invalid number format: {value}"
+            ) from error
