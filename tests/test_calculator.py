@@ -12,6 +12,7 @@ from app.history import LoggingObserver
 
 from app.calculator import Calculator, calculator
 from app.operations import (
+    Operation,
     OperationError,
     Addition,
     Subtraction,
@@ -585,6 +586,67 @@ def test_validator_keeps_whole_numbers_readable(calc):
     calc.perform_operation("10", "0")
 
     assert str(calc.history[0].operand1) == "10"
+
+
+# Tests for precision and result validation
+
+def test_result_is_rounded_to_configured_precision(tmp_path):
+    calc = Calculator(CalculatorConfig(base_dir=tmp_path, precision=2))
+    calc.set_operation(Division())
+
+    result = calc.perform_operation("1", "3")
+
+    assert result == Decimal("0.33")
+    assert calc.history[0].result == Decimal("0.33")
+    assert calc.show_history() == ["Division(1, 3) = 0.33"]
+
+
+def test_default_precision_is_ten_places(calc):
+    calc.set_operation(Division())
+
+    assert calc.perform_operation("2", "3") == Decimal("0.6666666667")
+
+
+def test_precision_does_not_change_operands(tmp_path):
+    calc = Calculator(CalculatorConfig(base_dir=tmp_path, precision=1))
+    calc.set_operation(Addition())
+
+    calc.perform_operation("1.25", "1.25")
+
+    assert calc.history[0].operand1 == Decimal("1.25")
+    assert calc.history[0].result == Decimal("2.5")
+
+
+class FixedResultOperation(Operation):
+    """Test operation that returns whatever value it was given."""
+
+    def __init__(self, value):
+        self.value = value
+
+    def execute(self, a, b):
+        return self.value
+
+
+@pytest.mark.parametrize(
+    "value", [Decimal("Infinity"), Decimal("-Infinity"), Decimal("NaN"), 1.5, None]
+)
+def test_invalid_result_is_rejected_and_not_recorded(calc, value):
+    calc.set_operation(FixedResultOperation(value))
+
+    with pytest.raises(OperationError):
+        calc.perform_operation("1", "1")
+
+    assert calc.history == []
+    assert calc.undo() is False
+
+
+def test_rejected_result_is_logged(calc):
+    calc.set_operation(FixedResultOperation(Decimal("Infinity")))
+
+    with pytest.raises(OperationError):
+        calc.perform_operation("1", "1")
+
+    assert "Calculation rejected" in _read(calc.config.log_file)
 
 
 # Tests for history limit and overflow
