@@ -1,10 +1,11 @@
 """Input validation for calculator operands."""
 
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation, localcontext
 from typing import Any
 
+
 from app.calculator_config import CalculatorConfig
-from app.exceptions import ValidationError
+from app.exceptions import OperationError, ValidationError
 
 
 class InputValidator:
@@ -48,3 +49,44 @@ class InputValidator:
             raise ValidationError(
                 f"Invalid number format: {value}"
             ) from error
+
+    @staticmethod
+    def apply_precision(value: Decimal, places: int) -> Decimal:
+        """
+        Round a finite Decimal to the given number of decimal places.
+
+        Whole numbers are returned without a fractional part (5, not
+        5.0000000000) and trailing zeros are removed from other results.
+        """
+        # An exponent of zero or more means there is no fractional part.
+        if value.as_tuple().exponent >= 0:
+            return value
+
+        # Quantizing needs enough digits of precision to hold the result,
+        # so widen the context temporarily instead of failing.
+        with localcontext() as context:
+            context.prec = max(context.prec, value.adjusted() + places + 2)
+            context.rounding = ROUND_HALF_UP
+            rounded = value.quantize(Decimal(1).scaleb(-places))
+
+            if rounded == rounded.to_integral_value():
+                return Decimal(int(rounded))
+            return rounded.normalize()
+
+    @staticmethod
+    def validate_result(result: Any, config: CalculatorConfig) -> Decimal:
+        """
+        Check an arithmetic result and round it to the configured precision.
+
+        Raises:
+            OperationError: If the result is not a finite number.
+        """
+        if not isinstance(result, Decimal):
+            raise OperationError("Calculation produced a non-numeric result.")
+
+        if not result.is_finite():
+            raise OperationError(
+                "Calculation produced a result that is not a finite number."
+            )
+
+        return InputValidator.apply_precision(result, config.precision)
