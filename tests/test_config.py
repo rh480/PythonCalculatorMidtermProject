@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from app.calculator_config import CalculatorConfig, get_project_root
+from app.calculator_config import CalculatorConfig, get_project_root, MAX_PRECISION
 from app.exceptions import ConfigurationError
 
 ENV_VARS = [
@@ -136,4 +136,12 @@ def test_validate_detects_later_changes():
 
 def test_get_project_root():
     assert (get_project_root() / "app").is_dir()
-    
+
+## Tests for MAX_PRECISION
+def test_precision_at_the_maximum_is_accepted():
+    assert CalculatorConfig(precision=MAX_PRECISION).precision == MAX_PRECISION
+
+
+def test_precision_above_the_maximum_is_rejected():
+    with pytest.raises(ConfigurationError, match="precision must not exceed"):
+        CalculatorConfig(precision=MAX_PRECISION + 1)
