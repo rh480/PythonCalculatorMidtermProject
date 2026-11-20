@@ -303,6 +303,38 @@ def test_load_missing_history_file(temporary_calc, tmp_path):
 
     assert temporary_calc.history == []
 
+# parametrize test cases for saved rows with bad numbers or timestamps
+@pytest.mark.parametrize(
+    "row",
+    [
+        "Addition,1,2,abc,2026-01-01T12:00:00",        # not a number
+        "Addition,1,2,nan,2026-01-01T12:00:00",        # not finite
+        "Addition,1,2,Infinity,2026-01-01T12:00:00",   # not finite
+        "Addition,1,2,3,not-a-date",                   # invalid timestamp
+    ],
+)
+# malformed rows raise PersistenceError and leave the history untouched
+def test_load_history_with_bad_values(temporary_calc, tmp_path, row):
+    file_path = tmp_path / "bad_values.csv"
+    file_path.write_text(
+        "operation,operand1,operand2,result,timestamp\n" + row + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(PersistenceError, match="Could not load history"):
+        temporary_calc.load_history(file_path)
+
+    # Nothing from the bad file should have been loaded.
+    assert temporary_calc.history == []
+
+
+# an empty file has no columns, so it cannot be loaded
+def test_load_empty_history_file(temporary_calc, tmp_path):
+    file_path = tmp_path / "empty.csv"
+    file_path.write_text("", encoding="utf-8")
+
+    with pytest.raises(PersistenceError):
+        temporary_calc.load_history(file_path)
 
 def test_load_invalid_history_file(temporary_calc, tmp_path):
     file_path = tmp_path / "invalid.csv"
