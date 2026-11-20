@@ -12,6 +12,7 @@ from app.history import LoggingObserver
 
 from app.calculator import Calculator, calculator
 from app.operations import (
+    Operation,
     OperationError,
     Addition,
     Subtraction,
@@ -609,6 +610,7 @@ def test_decimal_overflow_becomes_operation_error(calc):
 
 
 # Tests for factory-based REPL
+
 @pytest.mark.parametrize("interrupt", [EOFError(), KeyboardInterrupt()])
 def test_repl_exits_on_interrupt(monkeypatch, capsys, interrupt):
     def fake_input(_):
@@ -663,3 +665,63 @@ def test_dynamic_help_includes_registered_operation():
         assert command_name in OperationFactory.get_supported_operations()
     finally:
         HELP_REGISTRY.pop(command_name, None)
+
+# Precision and result validation
+
+def test_result_is_rounded_to_configured_precision():
+    calc = Calculator(CalculatorConfig(precision=2))
+    calc.set_operation(Division())
+
+    result = calc.perform_operation("1", "3")
+
+    assert result == Decimal("0.33")
+    assert calc.history[0].result == Decimal("0.33")
+    assert calc.show_history() == ["Division(1, 3) = 0.33"]
+
+
+def test_default_precision_is_ten_places(calc):
+    calc.set_operation(Division())
+
+    assert calc.perform_operation("2", "3") == Decimal("0.6666666667")
+
+
+def test_precision_changes_the_result_but_not_the_operands():
+    calc = Calculator(CalculatorConfig(precision=1))
+    calc.set_operation(Addition())
+
+    calc.perform_operation("1.25", "1.25")
+
+    assert calc.history[0].operand1 == Decimal("1.25")
+    assert calc.history[0].result == Decimal("2.5")
+
+
+class FixedResultOperation(Operation):
+    """Test operation that returns whatever value it was given."""
+
+    def __init__(self, value):
+        self.value = value
+
+    def execute(self, a, b):
+        return self.value
+
+
+@pytest.mark.parametrize(
+    "value", [Decimal("Infinity"), Decimal("-Infinity"), Decimal("NaN"), 1.5, None]
+)
+def test_invalid_results_are_rejected(calc, value):
+    calc.set_operation(FixedResultOperation(value))
+
+    with pytest.raises(OperationError):
+        calc.perform_operation("1", "1")
+
+    assert calc.history == []
+    assert calc.undo() is False  # nothing was recorded for undo either
+
+
+def test_rejected_result_is_logged(calc):
+    calc.set_operation(FixedResultOperation(Decimal("Infinity")))
+
+    with pytest.raises(OperationError):
+        calc.perform_operation("1", "1")
+
+    assert "Calculation rejected" in calc.config.log_file.read_text(encoding="utf-8")

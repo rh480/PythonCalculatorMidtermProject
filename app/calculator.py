@@ -180,6 +180,8 @@ class Calculator:
             b = InputValidator.validate_number(b, self.config)
             try:
                 result = self.operation_strategy.execute(a, b)
+                # Reject non-finite results, then apply CALCULATOR_PRECISION.
+                result = InputValidator.validate_result(result, self.config)
             except (ArithmeticError, InvalidOperation, ValueError) as error:  # Decimal overflow and similar
                 raise OperationError(
                     f"Calculation failed: {error}"
