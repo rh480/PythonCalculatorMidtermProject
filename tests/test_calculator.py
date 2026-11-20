@@ -1,4 +1,3 @@
-
 """Tests for the Calculator class and command-line interface."""
 
 from decimal import Decimal
@@ -303,6 +302,38 @@ def test_load_missing_history_file(temporary_calc, tmp_path):
 
     assert temporary_calc.history == []
 
+# parametrize test cases for saved rows with bad numbers or timestamps
+@pytest.mark.parametrize(
+    "row",
+    [
+        "Addition,1,2,abc,2026-01-01T12:00:00",        # not a number
+        "Addition,1,2,nan,2026-01-01T12:00:00",        # not finite
+        "Addition,1,2,Infinity,2026-01-01T12:00:00",   # not finite
+        "Addition,1,2,3,not-a-date",                   # invalid timestamp
+    ],
+)
+# malformed rows raise PersistenceError and leave the history untouched
+def test_load_history_with_bad_values(temporary_calc, tmp_path, row):
+    file_path = tmp_path / "bad_values.csv"
+    file_path.write_text(
+        "operation,operand1,operand2,result,timestamp\n" + row + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(PersistenceError, match="Could not load history"):
+        temporary_calc.load_history(file_path)
+
+    # Nothing from the bad file should have been loaded.
+    assert temporary_calc.history == []
+
+
+# an empty file has no columns, so it cannot be loaded
+def test_load_empty_history_file(temporary_calc, tmp_path):
+    file_path = tmp_path / "empty.csv"
+    file_path.write_text("", encoding="utf-8")
+
+    with pytest.raises(PersistenceError):
+        temporary_calc.load_history(file_path)
 
 def test_load_invalid_history_file(temporary_calc, tmp_path):
     file_path = tmp_path / "invalid.csv"
@@ -588,6 +619,67 @@ def test_validator_keeps_whole_numbers_readable(calc):
     assert str(calc.history[0].operand1) == "10"
 
 
+# Tests for precision and result validation
+
+def test_result_is_rounded_to_configured_precision(tmp_path):
+    calc = Calculator(CalculatorConfig(base_dir=tmp_path, precision=2))
+    calc.set_operation(Division())
+
+    result = calc.perform_operation("1", "3")
+
+    assert result == Decimal("0.33")
+    assert calc.history[0].result == Decimal("0.33")
+    assert calc.show_history() == ["Division(1, 3) = 0.33"]
+
+
+def test_default_precision_is_ten_places(calc):
+    calc.set_operation(Division())
+
+    assert calc.perform_operation("2", "3") == Decimal("0.6666666667")
+
+
+def test_precision_does_not_change_operands(tmp_path):
+    calc = Calculator(CalculatorConfig(base_dir=tmp_path, precision=1))
+    calc.set_operation(Addition())
+
+    calc.perform_operation("1.25", "1.25")
+
+    assert calc.history[0].operand1 == Decimal("1.25")
+    assert calc.history[0].result == Decimal("2.5")
+
+
+class FixedResultOperation(Operation):
+    """Test operation that returns whatever value it was given."""
+
+    def __init__(self, value):
+        self.value = value
+
+    def execute(self, a, b):
+        return self.value
+
+
+@pytest.mark.parametrize(
+    "value", [Decimal("Infinity"), Decimal("-Infinity"), Decimal("NaN"), 1.5, None]
+)
+def test_invalid_result_is_rejected_and_not_recorded(calc, value):
+    calc.set_operation(FixedResultOperation(value))
+
+    with pytest.raises(OperationError):
+        calc.perform_operation("1", "1")
+
+    assert calc.history == []
+    assert calc.undo() is False
+
+
+def test_rejected_result_is_logged(calc):
+    calc.set_operation(FixedResultOperation(Decimal("Infinity")))
+
+    with pytest.raises(OperationError):
+        calc.perform_operation("1", "1")
+
+    assert "Calculation rejected" in _read(calc.config.log_file)
+
+
 # Tests for history limit and overflow
 
 def test_history_is_trimmed_to_max_size(tmp_path):
@@ -665,63 +757,3 @@ def test_dynamic_help_includes_registered_operation():
         assert command_name in OperationFactory.get_supported_operations()
     finally:
         HELP_REGISTRY.pop(command_name, None)
-
-# Precision and result validation
-
-def test_result_is_rounded_to_configured_precision():
-    calc = Calculator(CalculatorConfig(precision=2))
-    calc.set_operation(Division())
-
-    result = calc.perform_operation("1", "3")
-
-    assert result == Decimal("0.33")
-    assert calc.history[0].result == Decimal("0.33")
-    assert calc.show_history() == ["Division(1, 3) = 0.33"]
-
-
-def test_default_precision_is_ten_places(calc):
-    calc.set_operation(Division())
-
-    assert calc.perform_operation("2", "3") == Decimal("0.6666666667")
-
-
-def test_precision_changes_the_result_but_not_the_operands():
-    calc = Calculator(CalculatorConfig(precision=1))
-    calc.set_operation(Addition())
-
-    calc.perform_operation("1.25", "1.25")
-
-    assert calc.history[0].operand1 == Decimal("1.25")
-    assert calc.history[0].result == Decimal("2.5")
-
-
-class FixedResultOperation(Operation):
-    """Test operation that returns whatever value it was given."""
-
-    def __init__(self, value):
-        self.value = value
-
-    def execute(self, a, b):
-        return self.value
-
-
-@pytest.mark.parametrize(
-    "value", [Decimal("Infinity"), Decimal("-Infinity"), Decimal("NaN"), 1.5, None]
-)
-def test_invalid_results_are_rejected(calc, value):
-    calc.set_operation(FixedResultOperation(value))
-
-    with pytest.raises(OperationError):
-        calc.perform_operation("1", "1")
-
-    assert calc.history == []
-    assert calc.undo() is False  # nothing was recorded for undo either
-
-
-def test_rejected_result_is_logged(calc):
-    calc.set_operation(FixedResultOperation(Decimal("Infinity")))
-
-    with pytest.raises(OperationError):
-        calc.perform_operation("1", "1")
-
-    assert "Calculation rejected" in calc.config.log_file.read_text(encoding="utf-8")
