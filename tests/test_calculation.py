@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from app.calculation import Calculation
+import pytest
 
 
 def test_calculation_to_dict():
@@ -39,4 +40,19 @@ def test_calculation_from_dict():
     assert calculation.operand2 == 3.0
     assert calculation.result == 8.0
     assert calculation.timestamp == datetime(2026, 1, 1, 12, 0, 0)
+
+@pytest.mark.parametrize("bad_value", ["abc", "", "nan", "inf", "-Infinity", "1,5"])
+@pytest.mark.parametrize("field", ["operand1", "operand2", "result"])
+def test_calculation_from_dict_rejects_invalid_numbers(field, bad_value):
+    data = {
+        "operation": "Addition",
+        "operand1": "1",
+        "operand2": "2",
+        "result": "3",
+        "timestamp": "2026-01-01T12:00:00",
+    }
+    data[field] = bad_value
+
+    with pytest.raises(ValueError, match=field):
+        Calculation.from_dict(data)
     
