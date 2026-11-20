@@ -13,7 +13,7 @@ class HistoryObserver(ABC):
     @abstractmethod
     def update(self, calculation: Calculation) -> None:
         """Handle a completed calculation."""
-        pass
+        pass # pragma: no cover
 
 
 class LoggingObserver(HistoryObserver):

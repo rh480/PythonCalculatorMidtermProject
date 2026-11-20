@@ -9,7 +9,7 @@ from app.calculator_config import CalculatorConfig
 from app.exceptions import PersistenceError, ValidationError
 from app.history import LoggingObserver
 
-from app.calculator import Calculator, calculator
+from app.calculator import Calculator, calculator, main
 from app.operations import (
     Operation,
     OperationError,
@@ -757,3 +757,93 @@ def test_dynamic_help_includes_registered_operation():
         assert command_name in OperationFactory.get_supported_operations()
     finally:
         HELP_REGISTRY.pop(command_name, None)
+
+
+# Tests for startup, observer and save failures
+
+# a corrupt saved history file is ignored at startup and logged as a warning
+def test_corrupt_saved_history_is_ignored_at_startup(tmp_path):
+    config = CalculatorConfig(base_dir=tmp_path)
+    config.history_file.parent.mkdir(parents=True, exist_ok=True)
+    config.history_file.write_text("wrong_column\nvalue\n", encoding="utf-8")
+
+    calc = Calculator(config=config)
+
+    assert calc.history == []
+    assert "Could not load saved history" in _read(config.log_file)
+
+
+# an observer that fails is logged and does not stop the calculation
+def test_failing_observer_does_not_stop_the_calculation(calc):
+    class FailingObserver:
+        def update(self, calculation):
+            raise PersistenceError("Observer failure")
+
+    calc.register_observer(FailingObserver())
+    calc.set_operation(Addition())
+
+    result = calc.perform_operation("1", "1")
+
+    assert result == Decimal("2")
+    assert len(calc.history) == 1
+    assert "Observer FailingObserver failed" in _read(calc.config.log_file)
+
+
+# saving to a location that cannot be created raises PersistenceError
+def test_save_history_failure_raises_persistence_error(temporary_calc, tmp_path):
+    # A file where a folder is needed makes the save fail.
+    blocker = tmp_path / "not_a_folder"
+    blocker.write_text("x", encoding="utf-8")
+
+    with pytest.raises(PersistenceError, match="Could not save history"):
+        temporary_calc.save_history(blocker / "history.csv")
+
+    assert "Could not save history" in _read(temporary_calc.config.log_file)
+
+
+# Tests for undo, redo and cancel messages in the CLI
+
+def test_undo_command_with_nothing_to_undo(monkeypatch, capsys):
+    output = run_calculator(
+        monkeypatch, capsys, ["undo", "exit"]
+    )
+
+    assert "Nothing to undo." in output
+
+
+def test_redo_command_with_nothing_to_redo(monkeypatch, capsys):
+    output = run_calculator(
+        monkeypatch, capsys, ["redo", "exit"]
+    )
+
+    assert "Nothing to redo." in output
+
+
+# parametrize test cases for Ctrl+D and Ctrl+C at a number prompt
+@pytest.mark.parametrize("interrupt", [EOFError(), KeyboardInterrupt()])
+# interrupting a number prompt cancels only that calculation
+def test_calculation_is_cancelled_by_interrupt(monkeypatch, capsys, interrupt):
+    responses = iter(["add", interrupt, "exit"])
+
+    def fake_input(_):
+        response = next(responses)
+        if isinstance(response, BaseException):
+            raise response
+        return response
+
+    monkeypatch.setattr("builtins.input", fake_input)
+    calculator()
+
+    output = capsys.readouterr().out
+    assert "Calculation cancelled." in output
+    assert "Goodbye!" in output
+
+
+# Tests for the program entry point
+
+def test_main_starts_the_calculator(monkeypatch, capsys):
+    monkeypatch.setattr("builtins.input", lambda _: "exit")
+
+    main()
+
+    assert "Goodbye!" in capsys.readouterr().out

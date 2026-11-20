@@ -10,7 +10,7 @@ class Command(ABC):
     @abstractmethod
     def execute(self):
         """Execute the command."""
-        pass
+        pass # pragma: no cover
 
 
 class UndoCommand(Command):
