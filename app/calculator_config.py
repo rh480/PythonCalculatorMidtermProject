@@ -13,6 +13,9 @@ from app.exceptions import ConfigurationError
 # Load environment variables from a .env file into the program's environment
 load_dotenv()
 
+# Decimal arithmetic works with 28 significant digits by default, so asking
+# for more decimal places than this cannot produce more accurate results.
+MAX_PRECISION = 28
 
 def get_project_root() -> Path:
     """Return the project root directory (one level above the app package)."""
@@ -126,6 +129,8 @@ class CalculatorConfig:
             raise ConfigurationError("max_history_size must be positive")
         if self.precision <= 0:
             raise ConfigurationError("precision must be positive")
+        if self.precision > MAX_PRECISION:
+            raise ConfigurationError(f"precision must not exceed {MAX_PRECISION}")
         if self.max_input_value.is_nan() or self.max_input_value <= 0:
             raise ConfigurationError("max_input_value must be positive")
         try:

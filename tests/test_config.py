@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from app.calculator_config import CalculatorConfig, get_project_root
+from app.calculator_config import CalculatorConfig, get_project_root, MAX_PRECISION
 from app.exceptions import ConfigurationError
 
 ENV_VARS = [
@@ -107,6 +107,7 @@ def test_auto_save_environment_values(monkeypatch, value, expected):
         ({"max_input_value": 0}, "max_input_value must be positive"),
         ({"max_input_value": "nan"}, "max_input_value must be positive"),
         ({"default_encoding": "not-a-codec"}, "Unknown encoding"),
+        ({"precision": MAX_PRECISION + 1}, f"precision must not exceed {MAX_PRECISION}"),
     ],
 )
 def test_invalid_arguments(kwargs, message):
@@ -133,7 +134,15 @@ def test_validate_detects_later_changes():
     with pytest.raises(ConfigurationError, match="max_history_size must be positive"):
         config.validate()
 
-
 def test_get_project_root():
     assert (get_project_root() / "app").is_dir()
+
+
+def test_precision_at_the_maximum_is_accepted():
+    assert CalculatorConfig(precision=MAX_PRECISION).precision == MAX_PRECISION
+
+
+def test_precision_above_the_maximum_is_rejected():
+    with pytest.raises(ConfigurationError, match="precision must not exceed"):
+        CalculatorConfig(precision=MAX_PRECISION + 1)
     
