@@ -5,7 +5,7 @@ from decimal import Decimal
 import pytest
 
 from app.calculator_config import CalculatorConfig
-from app.exceptions import ValidationError
+from app.exceptions import ValidationError, OperationError
 from app.input_validators import InputValidator
 
 # Configuration with a maximum input value of 1 million
@@ -87,3 +87,50 @@ def test_validate_number_exceeds_max(value):
         match="Value exceeds maximum allowed",
     ):
         InputValidator.validate_number(value, config)
+
+
+# Tests for apply_precision and validate_result
+@pytest.mark.parametrize(
+    "value, places, expected",
+    [
+        ("3.14159265358979", 2, "3.14"),
+        ("2.675", 2, "2.68"),          # halves round up
+        ("-2.675", 2, "-2.68"),        # ...away from zero for negatives
+        ("1.50000", 4, "1.5"),         # trailing zeros are removed
+        ("5.0000", 3, "5"),            # whole numbers lose the fraction
+        ("0.9999999", 3, "1"),         # rounding can reach a whole number
+        ("-0.0000001", 3, "0"),        # tiny negatives become plain zero
+        ("12345678901234567890.123456789", 10, "12345678901234567890.123456789"),
+    ],
+)
+def test_apply_precision(value, places, expected):
+    result = InputValidator.apply_precision(Decimal(value), places)
+
+    assert str(result) == expected
+
+
+def test_apply_precision_leaves_large_whole_numbers_alone():
+    value = Decimal("1E+500")
+
+    assert InputValidator.apply_precision(value, 10) is value
+
+#Validate_result tests
+@pytest.mark.parametrize(
+    "result",
+    [Decimal("NaN"), Decimal("sNaN"), Decimal("Infinity"), Decimal("-Infinity")],
+)
+def test_validate_result_rejects_non_finite(result):
+    with pytest.raises(OperationError, match="not a finite number"):
+        InputValidator.validate_result(result, config)
+
+
+@pytest.mark.parametrize("result", [5.0, "5", None, 5])
+def test_validate_result_rejects_non_decimal(result):
+    with pytest.raises(OperationError, match="non-numeric"):
+        InputValidator.validate_result(result, config)
+
+
+def test_validate_result_applies_configured_precision():
+    precise = CalculatorConfig(precision=3)
+
+    assert InputValidator.validate_result(Decimal("1.23456"), precise) == Decimal("1.235")
