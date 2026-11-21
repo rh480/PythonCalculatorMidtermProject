@@ -14,8 +14,9 @@ The project demonstrates object-oriented programming, software design patterns, 
 - **Calculation history:** Review, clear, save, and load calculation history.
 - **Persistent storage:** Store calculation records in CSV format, including operations, operands, results, and timestamps.
 - **Configurable settings:** Customize precision, input limits, history size, file locations, and automatic saving through environment variables.
+- **Precision:** Every result is rounded to the number of decimal places set in `CALCULATOR_PRECISION`.
 - **Logging:** Record application activity and diagnostic information.
-- **Error handling:** Validate inputs and handle calculation errors with appropriate exceptions.
+- **Error handling:** Validate inputs and results, and handle calculation errors with appropriate exceptions.
 - **Automated testing:** Use pytest to verify application behavior and measure test coverage.
 - **Continuous integration:** Run automated checks through GitHub Actions.
 
@@ -78,7 +79,7 @@ PythonCalculatorMidtermProject/
 
 ## Prerequisites
 
-- Python 3.10 or a compatible version supported by the installed dependencies
+- Python 3.11 or newer (the GitHub Actions workflow uses Python 3.13)
 - Git
 - A terminal or command prompt
 
@@ -141,7 +142,31 @@ CALCULATOR_DEFAULT_ENCODING=utf-8
 
 These settings define logging and history file locations, the maximum history size, automatic saving, numerical precision, the maximum input value, and file encoding.
 
-Ensure the configuration values match the defaults and validation rules implemented in `app/calculator_config.py`. Keep local secrets and environment-specific settings out of version control.
+| Variable | Meaning | Built-in default |
+|---|---|---|
+| `CALCULATOR_LOG_DIR` | Directory for log files | `logs` |
+| `CALCULATOR_LOG_FILE` | Log file path | `logs/calculator.log` |
+| `CALCULATOR_HISTORY_DIR` | Directory for history files | `history` |
+| `CALCULATOR_HISTORY_FILE` | CSV file used by `save`, `load`, and auto-save | `history/calculator_history.csv` |
+| `CALCULATOR_MAX_HISTORY_SIZE` | Maximum number of history entries kept | `1000` |
+| `CALCULATOR_AUTO_SAVE` | Save history after every calculation (`true` or `false`) | `true` |
+| `CALCULATOR_PRECISION` | Decimal places kept in results (1 to 28) | `10` |
+| `CALCULATOR_MAX_INPUT_VALUE` | Largest absolute value accepted as input | `1e999` |
+| `CALCULATOR_DEFAULT_ENCODING` | Encoding for log and history files | `utf-8` |
+
+The values are loaded with `python-dotenv` when the application starts. A real environment variable takes priority over the `.env` file, and any missing setting uses its built-in default. All values are validated at startup: if one is invalid (for example a precision of 0 or 29), the application prints `Configuration error: <reason>` and exits.
+
+To change a setting for one run without editing `.env`:
+
+```bash
+CALCULATOR_PRECISION=2 python main.py            # macOS / Linux
+```
+
+```powershell
+$env:CALCULATOR_PRECISION=2; python main.py      # Windows PowerShell
+```
+
+Keep local secrets and environment-specific settings out of version control.
 
 ## Running the Application
 
@@ -172,6 +197,19 @@ The calculator supports the following operations:
 
 Division and other operations are subject to the application's input validation and error-handling rules.
 
+### Precision
+
+Every result is rounded half-up to `CALCULATOR_PRECISION` decimal places. Whole numbers are shown without a fractional part, and trailing zeros are removed. For example, `divide 1 3` gives `0.3333333333` with the default precision of 10 and `0.33` with a precision of 2. Only the result is rounded; the operands are stored as entered.
+
+### Validation and error handling
+
+- **Inputs** must be numbers. Text, empty input, `nan`, `inf`, and `-inf` are rejected, as are values larger than `CALCULATOR_MAX_INPUT_VALUE`.
+- **Operations** reject invalid cases with a clear message: division, modulus, integer division, and percentage by zero; a root degree of zero; an even or fractional root of a negative number; and zero raised to zero or a negative power.
+- **Results** must be finite numbers. A result that is not (including a Decimal overflow) is rejected, is not added to the history, and is logged as a warning.
+- **Saved history** is validated when it is loaded. A CSV with missing columns, non-numeric or non-finite values, or an invalid timestamp is reported as an error and leaves the current history unchanged.
+
+Errors are shown at the prompt and the calculator keeps running.
+
 ## CLI Commands
 
 Enter commands in the interactive calculator to perform calculations or manage calculation history.
@@ -187,14 +225,18 @@ Enter commands in the interactive calculator to perform calculations or manage c
 | `load` | Load previously saved calculation history |
 | `exit` | Exit the application |
 
-Arithmetic operations use the format `operation number1 number2`.
+Arithmetic operations are entered by name (for example `add`, `subtract`, `power`, `root`, `int_divide`, `percent`, or `abs_diff`). The calculator then asks for each number.
 
 Example:
 
-```text
-add 5 3
+<pre>
+<b>Enter an operation or command: add</b>
+<b>Selected operation: add</b>
+Enter first number: 5
+Enter second number: 3
+
 Result: 8
-```
+</pre>
 
 Use `help` within the application to view the registered operations and their descriptions.
 
@@ -210,9 +252,16 @@ The project uses design patterns to organize application responsibilities and im
 
 ## Calculation History and Logging
 
-Calculation history can be persisted to CSV files for later retrieval. The configured history path determines where saved records are stored. Automatic saving can be controlled through the `.env` configuration.
+Calculation history can be persisted to CSV files for later retrieval. The configured history path determines where saved records are stored. Automatic saving can be controlled through the `.env` configuration. The CSV file has these columns: `operation`, `operand1`, `operand2`, `result`, and `timestamp`. Saved history is loaded again when the application starts.
 
-Logging records application events and can help diagnose errors. Log file locations and encoding are configurable.
+Logging records application events and can help diagnose errors. Log file locations and encoding are configurable. Calculations and history actions are logged at `INFO`, rejected input and results at `WARNING`, and failures such as a history file that cannot be saved or loaded at `ERROR`. Example entries:
+
+```text
+2026-11-20 20:56:16,689 - INFO - Calculation: Addition(5, 3) = 8
+2026-11-20 20:56:17,032 - WARNING - Calculation rejected: Cannot calculate modulus with zero.
+```
+
+To move the log file, change `CALCULATOR_LOG_DIR` or `CALCULATOR_LOG_FILE` in `.env`.
 
 Generated history and log files may be created when the application runs, depending on the configured settings.
 
@@ -228,6 +277,12 @@ To run tests with coverage:
 
 ```bash
 python -m pytest --cov=app --cov-report=term-missing
+```
+
+To check against the 90% threshold used in CI:
+
+```bash
+python -m pytest --cov=app --cov-fail-under=90
 ```
 
 To generate an HTML coverage report:
@@ -249,11 +304,11 @@ The test suite includes coverage for:
 - Memento-based undo and redo
 - Logging utilities
 
-Run the coverage command to view the current test coverage percentage and identify lines that are not covered by tests.
+Run the coverage command to view the current test coverage percentage and identify lines that are not covered by tests. Lines that cannot be meaningfully tested, such as the bodies of abstract methods and the `if __name__ == "__main__":` guard, are marked with `# pragma: no cover`.
 
 ## Continuous Integration
 
-The repository includes a GitHub Actions workflow under `.github/workflows/`. The workflow can automatically run configured checks when code is pushed or a pull request is opened.
+The repository includes a GitHub Actions workflow in `.github/workflows/tests.yml`. It runs on every push and every pull request to `main`. It checks out the code, sets up Python 3.13, installs the packages in `requirements.txt` along with `pytest` and `pytest-cov`, and runs `pytest --cov=app --cov-fail-under=90`. The build fails if any test fails or if test coverage drops below 90%.
 
 See the **Actions** tab in the repository for workflow runs and results.
 
