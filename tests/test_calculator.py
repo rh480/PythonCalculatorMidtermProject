@@ -384,6 +384,14 @@ def test_help_command(monkeypatch, capsys):
     assert "save" in output
     assert "load" in output
 
+# the help example must match how the REPL really asks for numbers
+def test_help_example_matches_prompted_input(monkeypatch, capsys):
+    output = run_calculator(
+        monkeypatch, capsys, ["help", "exit"]
+    )
+
+    assert "Example: type 'add'" in output
+
 #  test clear command and undo/redo commands
 def test_clear_command(monkeypatch, capsys):
     output = run_calculator(
@@ -847,3 +855,14 @@ def test_main_starts_the_calculator(monkeypatch, capsys):
     main()
 
     assert "Goodbye!" in capsys.readouterr().out
+
+
+# an invalid configuration value exits with a clear message, not a traceback
+def test_main_reports_invalid_configuration(monkeypatch, capsys):
+    monkeypatch.setenv("CALCULATOR_PRECISION", "99")
+
+    with pytest.raises(SystemExit) as exit_info:
+        main()
+
+    assert exit_info.value.code == 1
+    assert "Configuration error: precision must not exceed 28" in capsys.readouterr().out

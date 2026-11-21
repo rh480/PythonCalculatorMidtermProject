@@ -9,7 +9,7 @@ import pandas as pd
 from app.calculation import Calculation
 from app.calculator_config import CalculatorConfig
 from app.calculator_memento import CalculatorMemento
-from app.exceptions import CalculatorError, OperationError, PersistenceError
+from app.exceptions import CalculatorError, OperationError, PersistenceError, ConfigurationError
 from app.history import LoggingObserver, AutoSaveObserver
 from app.input_validators import InputValidator
 from app.logger import configure_logger
@@ -260,8 +260,7 @@ def handle_help(calc):
     for name, description in OperationFactory.available_operations().items():
         print(info(f"  {name:<12} - {description}"))
     print(info("Commands: " + ", ".join([*COMMAND_HANDLERS, "exit"])))
-    print(info("Example: add 5 3"))
-
+    print(info("Example: type 'add', then enter the two numbers when asked."))
 
 def handle_undo(calc):
     """Undo the last change."""
@@ -370,8 +369,12 @@ def calculator():
 
 def main():
     """Start the calculator application."""
-    calculator()
-
+    try:
+        calculator()
+    except ConfigurationError as error:
+        # An invalid .env value should give a clear message, not a traceback.
+        print(color_error(f"Configuration error: {error}"))
+        raise SystemExit(1)
 
 if __name__ == "__main__": # pragma: no cover
     main()
